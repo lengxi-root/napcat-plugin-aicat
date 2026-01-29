@@ -14,14 +14,8 @@ import {
 } from '../tools/packet-tools';
 import { sendReply } from '../utils/message';
 
-/**
- * 处理 Packet 相关命令
- * @param rawMessage 原始消息
- * @param event 消息事件
- * @param ctx 插件上下文
- * @returns 是否已处理
- */
-export async function handlePacketCommands(
+// 处理 Packet 相关命令
+export async function handlePacketCommands (
   rawMessage: string,
   event: OB11Message,
   ctx: NapCatPluginContext
@@ -96,10 +90,8 @@ export async function handlePacketCommands(
   return false;
 }
 
-/**
- * 处理 API 命令
- */
-async function handleApiCommand(
+// 处理 API 命令
+async function handleApiCommand (
   body: string,
   event: OB11Message,
   ctx: NapCatPluginContext
@@ -133,10 +125,8 @@ async function handleApiCommand(
   }
 }
 
-/**
- * 处理 PB 命令
- */
-async function handlePbCommand(
+// 处理 PB 命令
+async function handlePbCommand (
   jsonStr: string,
   groupId: string,
   event: OB11Message,
@@ -151,10 +141,8 @@ async function handlePbCommand(
   }
 }
 
-/**
- * 处理 PBL 命令
- */
-async function handlePblCommand(
+// 处理 PBL 命令
+async function handlePblCommand (
   jsonStr: string,
   groupId: string,
   event: OB11Message,
@@ -169,10 +157,8 @@ async function handlePblCommand(
   }
 }
 
-/**
- * 处理 RAW 命令
- */
-async function handleRawCommand(
+// 处理 RAW 命令
+async function handleRawCommand (
   cmd: string,
   jsonStr: string,
   event: OB11Message,
@@ -191,10 +177,8 @@ async function handleRawCommand(
   }
 }
 
-/**
- * 处理按序号获取消息
- */
-async function handleGetBySeq(
+// 处理按序号获取消息
+async function handleGetBySeq (
   targetSeq: string,
   groupId: string,
   event: OB11Message,
@@ -210,7 +194,7 @@ async function handleGetBySeq(
 
     const pbData = result.data as Record<number, unknown>;
     const { senderQQ, senderName } = extractSenderInfo(pbData);
-    const botId = String((event as { self_id?: number }).self_id || '');
+    const botId = String((event as { self_id?: number; }).self_id || '');
 
     const nodes = buildMessageNodes(botId, 'Bot', parseInt(targetSeq), senderQQ, senderName, pbData);
 
@@ -225,10 +209,8 @@ async function handleGetBySeq(
   }
 }
 
-/**
- * 处理获取回复消息
- */
-async function handleGetReply(
+// 处理获取回复消息
+async function handleGetReply (
   event: OB11Message,
   groupId: string,
   ctx: NapCatPluginContext
@@ -238,8 +220,8 @@ async function handleGetReply(
   const message = event.message;
   if (Array.isArray(message)) {
     for (const seg of message) {
-      if ((seg as { type?: string }).type === 'reply' && (seg as { data?: { id?: string } }).data?.id) {
-        replyId = String((seg as { data: { id: string } }).data.id);
+      if ((seg as { type?: string; }).type === 'reply' && (seg as { data?: { id?: string; }; }).data?.id) {
+        replyId = String((seg as { data: { id: string; }; }).data.id);
         break;
       }
     }
@@ -273,7 +255,7 @@ async function handleGetReply(
       }
     }
 
-    const botId = String((event as { self_id?: number }).self_id || '');
+    const botId = String((event as { self_id?: number; }).self_id || '');
     const sender = msgData.sender as Record<string, unknown> | undefined;
     const senderQQ = sender?.user_id ? String(sender.user_id) : null;
     const senderName = (sender?.nickname as string) || null;
@@ -299,10 +281,8 @@ async function handleGetReply(
   }
 }
 
-/**
- * 处理获取上一条消息
- */
-async function handleGetPrevious(
+// 处理获取上一条消息
+async function handleGetPrevious (
   event: OB11Message,
   groupId: string,
   ctx: NapCatPluginContext
@@ -314,8 +294,8 @@ async function handleGetPrevious(
     const message = event.message;
     if (Array.isArray(message)) {
       for (const seg of message) {
-        if ((seg as { type?: string }).type === 'reply' && (seg as { data?: { id?: string } }).data?.id) {
-          const replyId = String((seg as { data: { id: string } }).data.id);
+        if ((seg as { type?: string; }).type === 'reply' && (seg as { data?: { id?: string; }; }).data?.id) {
+          const replyId = String((seg as { data: { id: string; }; }).data.id);
           const msgInfo = await ctx.actions.call('get_msg', { message_id: replyId } as never, ctx.adapterName, ctx.pluginManager.config) as Record<string, unknown>;
           if (msgInfo) {
             if (msgInfo.retcode === 0) {
@@ -358,7 +338,7 @@ async function handleGetPrevious(
 
     const pbData = result.data as Record<number, unknown>;
     const { senderQQ, senderName } = extractSenderInfo(pbData);
-    const botId = String((event as { self_id?: number }).self_id || '');
+    const botId = String((event as { self_id?: number; }).self_id || '');
 
     const nodes = buildMessageNodes(botId, 'Bot', previousSeq, senderQQ, senderName, pbData);
 

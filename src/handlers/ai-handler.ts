@@ -26,7 +26,7 @@ import { sendReply, sendLongMessage, extractAtUsers } from '../utils/message';
 import { checkUserPermission, buildPermissionInfo } from '../utils/permission';
 
 // 处理 AI 对话命令
-export async function handleAICommand(
+export async function handleAICommand (
   event: OB11Message,
   instruction: string,
   ctx: NapCatPluginContext,
@@ -54,9 +54,23 @@ export async function handleAICommand(
   const contextInfo = `群号: ${groupId || '私聊'} | 用户: ${userId} (${sender?.nickname || ''}) | 权限: ${permInfo}${atInfo}${replyInfo}
 指令: ${instruction}`;
 
-  // 创建 AI 客户端
-  const aiConfig = { ...DEFAULT_AI_CONFIG, model: pluginState.currentModel };
+  // 创建 AI 客户端（根据配置选择内置或自定义 API）
+  const useCustomApi = pluginState.config.apiSource === 'custom';
+  const aiConfig = useCustomApi
+    ? {
+      base_url: pluginState.config.customApiUrl || 'https://api.openai.com/v1/chat/completions',
+      api_key: pluginState.config.customApiKey || '',
+      model: pluginState.config.customModel || 'gpt-4o',
+      timeout: DEFAULT_AI_CONFIG.timeout,
+    }
+    : {
+      base_url: DEFAULT_AI_CONFIG.base_url,
+      api_key: DEFAULT_AI_CONFIG.api_key,
+      model: pluginState.currentModel,
+      timeout: DEFAULT_AI_CONFIG.timeout,
+    };
   const aiClient = new AIClient(aiConfig);
+  pluginState.debug(`使用 ${useCustomApi ? '自定义' : '内置'} API: ${aiConfig.base_url}, 模型: ${aiConfig.model}`);
 
   // 获取工具定义
   const tools: Tool[] = [
@@ -205,12 +219,7 @@ export async function handleAICommand(
   await sendReply(event, `⚠️ 达到最大轮数，已执行 ${allToolResults.length} 个操作`, ctx);
 }
 
-/**
- * 执行工具
- * @param toolName 工具名称
- * @param args 工具参数
- * @param ctx 插件上下文
- */
+// 执行工具
 async function executeTool (
   toolName: string,
   args: Record<string, unknown>,

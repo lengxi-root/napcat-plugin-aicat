@@ -7,17 +7,15 @@ export class AIClient {
   private model: string;
   private timeout: number;
 
-  constructor(config: AIConfig) {
+  constructor (config: AIConfig) {
     this.baseUrl = config.base_url;
     this.apiKey = config.api_key;
     this.model = config.model;
     this.timeout = config.timeout;
   }
 
-  /**
-   * 带工具调用的对话
-   */
-  async chatWithTools(messages: AIMessage[], tools: Tool[]): Promise<AIResponse> {
+  // 带工具调用的对话
+  async chatWithTools (messages: AIMessage[], tools: Tool[]): Promise<AIResponse> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -70,10 +68,8 @@ export class AIClient {
     }
   }
 
-  /**
-   * 简单对话（无工具）
-   */
-  async chatSimple(messages: AIMessage[]): Promise<string> {
+  // 简单对话（无工具）
+  async chatSimple (messages: AIMessage[]): Promise<string> {
     try {
       const response = await this.chatWithTools(messages, []);
       return response.choices?.[0]?.message?.content || '';
@@ -82,17 +78,13 @@ export class AIClient {
     }
   }
 
-  /**
-   * 更新模型
-   */
-  setModel(model: string): void {
+  // 更新模型
+  setModel (model: string): void {
     this.model = model;
   }
 
-  /**
-   * 获取当前模型
-   */
-  getModel(): string {
+  // 获取当前模型
+  getModel (): string {
     return this.model;
   }
 }

@@ -5,7 +5,7 @@ import { isOwner } from '../managers/owner-manager';
 import { pluginState } from '../core/state';
 
 // 检查用户权限
-export async function checkUserPermission(
+export async function checkUserPermission (
   userId: string,
   groupId: string | undefined,
   ctx: NapCatPluginContext
@@ -28,7 +28,7 @@ export async function checkUserPermission(
       ctx.adapterName,
       ctx.pluginManager.config
     );
-    const role = (result as { role?: string })?.role || 'member';
+    const role = (result as { role?: string; })?.role || 'member';
 
     return {
       is_admin: role === 'admin' || role === 'owner',
@@ -41,12 +41,8 @@ export async function checkUserPermission(
   }
 }
 
-/**
- * 构建权限信息字符串
- * @param userPerm 用户权限
- * @param userIsOwner 是否为主人
- */
-export function buildPermissionInfo(
+// 构建权限信息字符串
+export function buildPermissionInfo (
   userPerm: UserPermission,
   userIsOwner: boolean
 ): string {

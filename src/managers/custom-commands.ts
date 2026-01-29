@@ -5,7 +5,7 @@ import type { CustomCommand, Tool, ToolResult } from '../types';
 let DATA_DIR = '';
 let COMMANDS_FILE = '';
 
-export function initDataDir(dataPath: string): void {
+export function initDataDir (dataPath: string): void {
   DATA_DIR = dataPath;
   COMMANDS_FILE = join(DATA_DIR, 'custom_commands.json');
 
@@ -21,7 +21,7 @@ class CustomCommandManager {
     this.loadCommands();
   }
 
-  loadCommands(): void {
+  loadCommands (): void {
     if (!COMMANDS_FILE || !existsSync(COMMANDS_FILE)) return;
 
     try {
@@ -32,7 +32,7 @@ class CustomCommandManager {
     }
   }
 
-  private saveCommands(): void {
+  private saveCommands (): void {
     if (!COMMANDS_FILE) return;
 
     try {
@@ -47,7 +47,7 @@ class CustomCommandManager {
     }
   }
 
-  addCommand(
+  addCommand (
     commandId: string,
     pattern: string,
     responseType: 'text' | 'api',
@@ -57,7 +57,6 @@ class CustomCommandManager {
     apiExtract: string = '',
     description: string = ''
   ): ToolResult {
-    // 验证正则表达式
     try {
       new RegExp(pattern);
     } catch (error) {
@@ -80,7 +79,7 @@ class CustomCommandManager {
     return { success: true, message: `指令 '${commandId}' 已添加` };
   }
 
-  removeCommand(commandId: string): ToolResult {
+  removeCommand (commandId: string): ToolResult {
     if (this.commands.has(commandId)) {
       this.commands.delete(commandId);
       this.saveCommands();
@@ -89,7 +88,7 @@ class CustomCommandManager {
     return { success: false, error: `指令 '${commandId}' 不存在` };
   }
 
-  toggleCommand(commandId: string, enabled: boolean): ToolResult {
+  toggleCommand (commandId: string, enabled: boolean): ToolResult {
     const cmd = this.commands.get(commandId);
     if (!cmd) {
       return { success: false, error: `指令 '${commandId}' 不存在` };
@@ -99,7 +98,7 @@ class CustomCommandManager {
     return { success: true, message: `指令 '${commandId}' 已${enabled ? '启用' : '禁用'}` };
   }
 
-  listCommands(): ToolResult {
+  listCommands (): ToolResult {
     const cmdList = Array.from(this.commands.entries()).map(([id, cmd]) => ({
       id,
       pattern: cmd.pattern,
@@ -110,7 +109,7 @@ class CustomCommandManager {
     return { success: true, data: cmdList, count: cmdList.length };
   }
 
-  async matchAndExecute(
+  async matchAndExecute (
     content: string,
     userId: string,
     groupId: string,
@@ -131,7 +130,7 @@ class CustomCommandManager {
     return null;
   }
 
-  private async executeCommand(
+  private async executeCommand (
     cmd: CustomCommand,
     match: RegExpMatchArray,
     userId: string,
@@ -158,7 +157,7 @@ class CustomCommandManager {
     return '';
   }
 
-  private async callApi(
+  private async callApi (
     cmd: CustomCommand,
     match: RegExpMatchArray,
     userId: string
@@ -187,7 +186,7 @@ class CustomCommandManager {
     }
   }
 
-  private formatApiResponse(data: unknown, extractPath: string): string {
+  private formatApiResponse (data: unknown, extractPath: string): string {
     let result: unknown = data;
     let fields: string[] = [];
 
@@ -233,7 +232,7 @@ class CustomCommandManager {
     return this.formatValue(result, fields);
   }
 
-  private formatValue(value: unknown, fields: string[] = []): string {
+  private formatValue (value: unknown, fields: string[] = []): string {
     if (value === null || value === undefined) return 'API 返回为空';
     if (typeof value === 'string') return value;
     if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -250,7 +249,7 @@ class CustomCommandManager {
     return String(value);
   }
 
-  private formatObject(obj: unknown, fields: string[] = []): string {
+  private formatObject (obj: unknown, fields: string[] = []): string {
     if (obj === null || obj === undefined) return '';
     if (typeof obj !== 'object') return String(obj);
 
@@ -274,7 +273,7 @@ class CustomCommandManager {
     return entries.join(' | ');
   }
 
-  getPatterns(): Map<string, string> {
+  getPatterns (): Map<string, string> {
     const patterns = new Map<string, string>();
     for (const [id, cmd] of this.commands) {
       if (cmd.enabled) {
@@ -354,7 +353,7 @@ export const CUSTOM_COMMAND_TOOLS: Tool[] = [
 
 export const commandManager = new CustomCommandManager();
 
-export function executeCustomCommandTool(
+export function executeCustomCommandTool (
   toolName: string,
   args: Record<string, unknown>
 ): ToolResult {

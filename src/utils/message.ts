@@ -29,7 +29,7 @@ function isDuplicateMessage (targetId: string, content: string): boolean {
 }
 
 // 发送回复消息
-export async function sendReply(
+export async function sendReply (
   event: OB11Message,
   content: string,
   ctx: NapCatPluginContext
@@ -58,13 +58,7 @@ export async function sendReply(
   }
 }
 
-/**
- * 发送长消息（超过阈值使用合并转发）
- * @param event 原始消息事件
- * @param content 消息内容
- * @param ctx 插件上下文
- * @param threshold 阈值（默认300字）
- */
+// 发送长消息（超过阈值使用合并转发）
 export async function sendLongMessage (
   event: OB11Message,
   content: string,
@@ -124,11 +118,7 @@ export async function sendLongMessage (
   }
 }
 
-/**
- * 分割文本为多个片段
- * @param content 原始内容
- * @param maxLength 每片段最大长度
- */
+// 分割文本为多个片段
 export function splitTextToChunks (content: string, maxLength: number): string[] {
   const chunks: string[] = [];
   const lines = content.split('\n');
@@ -147,10 +137,7 @@ export function splitTextToChunks (content: string, maxLength: number): string[]
   return chunks;
 }
 
-/**
- * 处理消息内容：去除 CQ 码前缀
- * @param rawMessage 原始消息
- */
+// 处理消息内容：去除 CQ 码前缀
 export function processMessageContent (rawMessage: string): {
   content: string;
   replyMessageId?: string;
@@ -172,10 +159,7 @@ export function processMessageContent (rawMessage: string): {
   return { content, replyMessageId };
 }
 
-/**
- * 提取消息中的 @ 用户列表
- * @param message 消息数组
- */
+// 提取消息中的 @ 用户列表
 export function extractAtUsers (message: unknown): string[] {
   const atUsers: string[] = [];
 

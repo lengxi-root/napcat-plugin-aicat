@@ -27,16 +27,12 @@ class UserWatcherManager {
     this.loadWatchers();
   }
 
-  /**
-   * 设置 API 调用器
-   */
+  // 设置 API 调用器
   setApiCaller(caller: ApiCaller): void {
     this.apiCaller = caller;
   }
 
-  /**
-   * 加载检测器
-   */
+  // 加载检测器
   loadWatchers(): void {
     if (!WATCHERS_FILE || !existsSync(WATCHERS_FILE)) return;
     
@@ -48,9 +44,7 @@ class UserWatcherManager {
     }
   }
 
-  /**
-   * 保存检测器
-   */
+  // 保存检测器
   private saveWatchers(): void {
     if (!WATCHERS_FILE) return;
     
@@ -66,9 +60,7 @@ class UserWatcherManager {
     }
   }
 
-  /**
-   * 添加检测器
-   */
+  // 添加检测器
   addWatcher(
     watcherId: string,
     targetUserId: string,
@@ -109,9 +101,7 @@ class UserWatcherManager {
     };
   }
 
-  /**
-   * 删除检测器
-   */
+  // 删除检测器
   removeWatcher(watcherId: string): ToolResult {
     if (this.watchers.has(watcherId)) {
       this.watchers.delete(watcherId);
@@ -121,9 +111,7 @@ class UserWatcherManager {
     return { success: false, error: `检测器 '${watcherId}' 不存在` };
   }
 
-  /**
-   * 切换检测器状态
-   */
+  // 切换检测器状态
   toggleWatcher(watcherId: string, enabled: boolean): ToolResult {
     const watcher = this.watchers.get(watcherId);
     if (!watcher) {
@@ -134,9 +122,7 @@ class UserWatcherManager {
     return { success: true, message: `检测器 '${watcherId}' 已${enabled ? '启用' : '禁用'}` };
   }
 
-  /**
-   * 列出所有检测器
-   */
+  // 列出所有检测器
   listWatchers(): ToolResult {
     const watcherList = Array.from(this.watchers.entries()).map(([id, w]) => ({
       id,
@@ -151,9 +137,7 @@ class UserWatcherManager {
     return { success: true, data: watcherList, count: watcherList.length };
   }
 
-  /**
-   * 检查并执行检测器
-   */
+  // 检查并执行检测器
   async checkAndExecute(
     userId: string,
     groupId: string,
@@ -206,9 +190,7 @@ class UserWatcherManager {
     return null;
   }
 
-  /**
-   * 执行操作
-   */
+  // 执行操作
   private async executeAction(
     watcher: UserWatcher,
     userId: string,
@@ -367,9 +349,7 @@ export const USER_WATCHER_TOOLS: Tool[] = [
 // 导出单例
 export const userWatcherManager = new UserWatcherManager();
 
-/**
- * 执行用户检测器工具
- */
+// 执行用户检测器工具
 export function executeUserWatcherTool(
   toolName: string,
   args: Record<string, unknown>

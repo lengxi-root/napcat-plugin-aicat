@@ -8,6 +8,11 @@ export interface PluginConfig {
   ownerQQs: string;
   model: string;
   debug: boolean;
+  // OpenAI API 配置
+  apiSource: 'builtin' | 'custom';
+  customApiUrl: string;
+  customApiKey: string;
+  customModel: string;
   [key: string]: unknown;
 }
 

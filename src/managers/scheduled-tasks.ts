@@ -7,10 +7,10 @@ let DATA_DIR = '';
 let TASKS_FILE = '';
 
 // 初始化数据目录
-export function initTasksDataDir(dataPath: string): void {
+export function initTasksDataDir (dataPath: string): void {
   DATA_DIR = dataPath;
   TASKS_FILE = join(DATA_DIR, 'scheduled_tasks.json');
-  
+
   if (!existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -24,23 +24,19 @@ class ScheduledTaskManager {
   private messageSender: MessageSender | null = null;
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
-  constructor() {
+  constructor () {
     this.loadTasks();
   }
 
-  /**
-   * 设置消息发送器
-   */
-  setMessageSender(sender: MessageSender): void {
+  // 设置消息发送器
+  setMessageSender (sender: MessageSender): void {
     this.messageSender = sender;
   }
 
-  /**
-   * 加载任务
-   */
-  loadTasks(): void {
+  // 加载任务
+  loadTasks (): void {
     if (!TASKS_FILE || !existsSync(TASKS_FILE)) return;
-    
+
     try {
       const data = JSON.parse(readFileSync(TASKS_FILE, 'utf-8'));
       this.tasks = new Map(Object.entries(data));
@@ -49,12 +45,10 @@ class ScheduledTaskManager {
     }
   }
 
-  /**
-   * 保存任务
-   */
-  private saveTasks(): void {
+  // 保存任务
+  private saveTasks (): void {
     if (!TASKS_FILE) return;
-    
+
     try {
       const dir = dirname(TASKS_FILE);
       if (!existsSync(dir)) {
@@ -67,23 +61,19 @@ class ScheduledTaskManager {
     }
   }
 
-  /**
-   * 启动调度器
-   */
-  startScheduler(): void {
+  // 启动调度器
+  startScheduler (): void {
     if (this.intervalId) return;
-    
+
     this.intervalId = setInterval(() => {
       this.checkAndExecuteTasks();
     }, 60000); // 每分钟检查一次
-    
+
     console.log('[ScheduledTasks] 调度器已启动');
   }
 
-  /**
-   * 停止调度器
-   */
-  stopScheduler(): void {
+  // 停止调度器
+  stopScheduler (): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
@@ -91,10 +81,8 @@ class ScheduledTaskManager {
     }
   }
 
-  /**
-   * 检查并执行任务
-   */
-  private async checkAndExecuteTasks(): Promise<void> {
+  // 检查并执行任务
+  private async checkAndExecuteTasks (): Promise<void> {
     const now = new Date();
     const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
@@ -129,10 +117,8 @@ class ScheduledTaskManager {
     }
   }
 
-  /**
-   * 执行任务
-   */
-  private async executeTask(taskId: string): Promise<void> {
+  // 执行任务
+  private async executeTask (taskId: string): Promise<void> {
     const task = this.tasks.get(taskId);
     if (!task) return;
 
@@ -146,11 +132,11 @@ class ScheduledTaskManager {
       // 更新执行记录
       task.last_run = new Date().toISOString();
       task.run_count = (task.run_count || 0) + 1;
-      
+
       if (!task.repeat) {
         task.enabled = false;
       }
-      
+
       this.saveTasks();
       console.log(`[ScheduledTasks] 任务 ${taskId} 已执行`);
     } catch (error) {
@@ -158,10 +144,8 @@ class ScheduledTaskManager {
     }
   }
 
-  /**
-   * 添加任务
-   */
-  addTask(
+  // 添加任务
+  addTask (
     taskId: string,
     taskType: 'send_message' | 'api_call',
     targetType: 'group' | 'private',
@@ -216,10 +200,8 @@ class ScheduledTaskManager {
     return { success: true, message: msg };
   }
 
-  /**
-   * 删除任务
-   */
-  removeTask(taskId: string): ToolResult {
+  // 删除任务
+  removeTask (taskId: string): ToolResult {
     if (this.tasks.has(taskId)) {
       this.tasks.delete(taskId);
       this.saveTasks();
@@ -228,10 +210,8 @@ class ScheduledTaskManager {
     return { success: false, error: `任务 '${taskId}' 不存在` };
   }
 
-  /**
-   * 切换任务状态
-   */
-  toggleTask(taskId: string, enabled: boolean): ToolResult {
+  // 切换任务状态
+  toggleTask (taskId: string, enabled: boolean): ToolResult {
     const task = this.tasks.get(taskId);
     if (!task) {
       return { success: false, error: `任务 '${taskId}' 不存在` };
@@ -241,10 +221,8 @@ class ScheduledTaskManager {
     return { success: true, message: `任务 '${taskId}' 已${enabled ? '启用' : '禁用'}` };
   }
 
-  /**
-   * 立即执行任务
-   */
-  async runTaskNow(taskId: string): Promise<ToolResult> {
+  // 立即执行任务
+  async runTaskNow (taskId: string): Promise<ToolResult> {
     if (!this.tasks.has(taskId)) {
       return { success: false, error: `任务 '${taskId}' 不存在` };
     }
@@ -252,10 +230,8 @@ class ScheduledTaskManager {
     return { success: true, message: `任务 '${taskId}' 已执行` };
   }
 
-  /**
-   * 列出所有任务
-   */
-  listTasks(): ToolResult {
+  // 列出所有任务
+  listTasks (): ToolResult {
     const taskList = Array.from(this.tasks.entries()).map(([id, task]) => {
       const schedule = task.daily_time
         ? `每天 ${task.daily_time}`
@@ -273,10 +249,8 @@ class ScheduledTaskManager {
     return { success: true, data: taskList, count: taskList.length };
   }
 
-  /**
-   * 解析消息内容（支持 CQ 码和 JSON）
-   */
-  parseMessageContent(content: string): unknown[] {
+  // 解析消息内容（支持 CQ 码和 JSON）
+  parseMessageContent (content: string): unknown[] {
     // 检测是否为 JSON 格式
     if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
       try {
@@ -305,7 +279,7 @@ class ScheduledTaskManager {
 
       const [, cqType, paramsStr] = match;
       const params: Record<string, string> = {};
-      
+
       if (paramsStr) {
         for (const p of paramsStr.split(',')) {
           const [key, value] = p.split('=');
@@ -423,10 +397,8 @@ export const SCHEDULED_TASK_TOOLS: Tool[] = [
 // 导出单例
 export const taskManager = new ScheduledTaskManager();
 
-/**
- * 执行定时任务工具
- */
-export async function executeScheduledTaskTool(
+// 执行定时任务工具
+export async function executeScheduledTaskTool (
   toolName: string,
   args: Record<string, unknown>
 ): Promise<ToolResult> {
@@ -457,6 +429,6 @@ export async function executeScheduledTaskTool(
   }
 }
 
-export function getScheduledTaskTools(): Tool[] {
+export function getScheduledTaskTools (): Tool[] {
   return SCHEDULED_TASK_TOOLS;
 }

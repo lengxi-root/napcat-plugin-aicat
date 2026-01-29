@@ -1,4 +1,4 @@
-// NapCat AI Cat 插件 - 智能猫娘群管助手
+// NapCat AI Cat 插件 - 智能猫娘群管助手 @author 冷曦 @version 1.0.0
 
 import type { PluginModule, NapCatPluginContext, PluginConfigSchema } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
@@ -26,8 +26,11 @@ import type { NetworkAdapterConfig } from 'napcat-types/napcat-onebot/config/con
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// === 配置 UI ===
+// 配置 UI 导出
 export let plugin_config_ui: PluginConfigSchema = [];
 
+// === 插件生命周期 ===
 // 插件初始化
 const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext) => {
   // 初始化状态
@@ -46,7 +49,16 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.text('botName', '机器人名称', '汐雨', '机器人的显示名称'),
     ctx.NapCatConfig.text('confirmMessage', '确认消息', '汐雨收到喵～', '收到指令后的确认回复'),
     ctx.NapCatConfig.text('ownerQQs', '主人QQ', '', '主人QQ号列表，多个用逗号分隔（如：123456,789012）'),
-    ctx.NapCatConfig.select('model', 'AI 模型', MODEL_LIST.map(m => ({ label: m, value: m })), 'gpt-5', '选择 AI 对话使用的模型'),
+    ctx.NapCatConfig.html('<div style="padding: 8px; margin-top: 10px; background: rgba(0,100,200,0.1); border-radius: 6px;"><strong>🤖 AI API 配置</strong></div>'),
+    ctx.NapCatConfig.select('apiSource', 'API 来源', [
+      { label: '🏠 内置 API（免费）', value: 'builtin' },
+      { label: '🔧 自定义 OpenAI API', value: 'custom' },
+    ], 'builtin', '选择使用内置API或自定义OpenAI兼容API'),
+    ctx.NapCatConfig.select('model', '内置 AI 模型', MODEL_LIST.map(m => ({ label: m, value: m })), 'gpt-5', '内置API使用的模型'),
+    ctx.NapCatConfig.html('<div style="padding: 6px; margin-top: 8px; background: rgba(255,165,0,0.1); border-radius: 4px; font-size: 12px;">⬇️ 以下配置仅在选择"自定义API"时生效</div>'),
+    ctx.NapCatConfig.text('customApiUrl', '自定义 API 地址', '', 'OpenAI 兼容的完整 URL，如 https://api.openai.com/v1/chat/completions'),
+    ctx.NapCatConfig.text('customApiKey', '自定义 API 密钥', '', 'API Key（sk-xxx）'),
+    ctx.NapCatConfig.text('customModel', '自定义模型名称', 'gpt-4o', '如 gpt-4o、gpt-3.5-turbo、claude-3-opus 等'),
     ctx.NapCatConfig.select('maxContextTurns', '最大上下文轮数', [
       { label: '5 轮', value: 5 },
       { label: '10 轮', value: 10 },
@@ -143,16 +155,12 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   pluginState.log('info', 'AI Cat 插件初始化完成喵～');
 };
 
-/**
- * 获取配置
- */
+// 获取配置
 export const plugin_get_config = async (): Promise<PluginConfig> => {
   return pluginState.config;
 };
 
-/**
- * 保存配置
- */
+// 保存配置
 export const plugin_set_config = async (ctx: NapCatPluginContext, config: PluginConfig): Promise<void> => {
   pluginState.config = config;
 
@@ -162,10 +170,24 @@ export const plugin_set_config = async (ctx: NapCatPluginContext, config: Plugin
     pluginState.log('info', `主人QQ已更新: ${config.ownerQQs}`);
   }
 
-  // 更新 AI 模型
+  // 更新 AI 模型（内置 API 使用）
   if (config.model) {
     pluginState.currentModel = config.model;
-    pluginState.log('info', `AI 模型已更新: ${config.model}`);
+    pluginState.log('info', `内置 AI 模型已更新: ${config.model}`);
+  }
+
+  // 更新 API 来源
+  if (config.apiSource) {
+    const sourceLabel = config.apiSource === 'custom' ? '自定义 API' : '内置 API';
+    pluginState.log('info', `API 来源已切换: ${sourceLabel}`);
+    if (config.apiSource === 'custom') {
+      if (config.customApiUrl) {
+        pluginState.log('info', `自定义 API 地址: ${config.customApiUrl}`);
+      }
+      if (config.customModel) {
+        pluginState.log('info', `自定义模型: ${config.customModel}`);
+      }
+    }
   }
 
   // 保存到文件
@@ -184,9 +206,7 @@ export const plugin_set_config = async (ctx: NapCatPluginContext, config: Plugin
   }
 };
 
-/**
- * 插件清理
- */
+// 插件清理
 const plugin_cleanup: PluginModule['plugin_cleanup'] = async (_ctx: NapCatPluginContext) => {
   pluginState.log('info', 'AI Cat 插件正在卸载喵～');
   taskManager.stopScheduler();
@@ -194,9 +214,7 @@ const plugin_cleanup: PluginModule['plugin_cleanup'] = async (_ctx: NapCatPlugin
   closeMessageLogger();
 };
 
-/**
- * 消息处理
- */
+// 消息处理
 const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPluginContext, event: OB11Message) => {
   if (event.post_type !== EventType.MESSAGE) return;
 
@@ -269,8 +287,5 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   await handleCommand(event, command, ctx, replyMessageId);
 };
 
-// ============================================================================
-// 导出
-// ============================================================================
-
+// === 导出 ===
 export { plugin_init, plugin_onmessage, plugin_cleanup };

@@ -9,6 +9,11 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   ownerQQs: '',
   model: 'gpt-5',
   debug: false,
+  // OpenAI API 配置
+  apiSource: 'builtin',
+  customApiUrl: '',
+  customApiKey: '',
+  customModel: 'gpt-4o',
 };
 
 // 可用模型列表

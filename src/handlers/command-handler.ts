@@ -63,9 +63,7 @@ raw <cmd>\\n{...} - 发送数据包`;
   await sendReply(event, helpText, ctx);
 }
 
-/**
- * 处理模型列表命令
- */
+// 处理模型列表命令
 export async function handleListModels (
   event: OB11Message,
   ctx: NapCatPluginContext
@@ -79,9 +77,7 @@ export async function handleListModels (
   await sendReply(event, lines.join('\n'), ctx);
 }
 
-/**
- * 处理切换模型命令
- */
+// 处理切换模型命令
 export async function handleSwitchModel (
   event: OB11Message,
   indexStr: string | undefined,
@@ -101,10 +97,7 @@ export async function handleSwitchModel (
   }
 }
 
-/**
- * 处理主命令入口
- * @returns 是否已处理该命令
- */
+// 处理主命令入口
 export async function handleCommand (
   event: OB11Message,
   command: string,

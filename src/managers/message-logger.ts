@@ -48,24 +48,18 @@ const SAVE_INTERVAL = 60000; // 自动保存间隔（毫秒）
 const MAX_MESSAGES_PER_FILE = 5000; // 每个文件最大消息数
 let saveTimer: ReturnType<typeof setInterval> | null = null;
 
-/**
- * 获取日志文件路径
- */
+// 获取日志文件路径
 function getLogFilePath (messageType: 'private' | 'group', targetId: string): string {
   const filename = messageType === 'group' ? `group_${targetId}.json` : `private_${targetId}.json`;
   return join(LOG_DIR, filename);
 }
 
-/**
- * 获取缓存键
- */
+// 获取缓存键
 function getCacheKey (messageType: 'private' | 'group', targetId: string): string {
   return messageType === 'group' ? `group_${targetId}` : `private_${targetId}`;
 }
 
-/**
- * 加载日志文件
- */
+// 加载日志文件
 function loadLogFile (cacheKey: string): MessageRecord[] {
   if (messageCache.has(cacheKey)) {
     return messageCache.get(cacheKey)!;
@@ -93,9 +87,7 @@ function loadLogFile (cacheKey: string): MessageRecord[] {
   }
 }
 
-/**
- * 保存日志文件
- */
+// 保存日志文件
 function saveLogFile (cacheKey: string): void {
   const messages = messageCache.get(cacheKey);
   if (!messages) return;
@@ -114,9 +106,7 @@ function saveLogFile (cacheKey: string): void {
   }
 }
 
-/**
- * 保存所有脏文件
- */
+// 保存所有脏文件
 function saveAllDirtyFiles (): void {
   for (const cacheKey of dirtyFiles) {
     saveLogFile(cacheKey);
@@ -124,10 +114,7 @@ function saveAllDirtyFiles (): void {
   dirtyFiles.clear();
 }
 
-/**
- * 初始化消息日志记录器
- * @param dataPath 数据目录路径
- */
+// 初始化消息日志记录器
 export async function initMessageLogger (dataPath: string): Promise<boolean> {
   try {
     // 使用传入的数据目录下的 log 子目录
@@ -153,9 +140,7 @@ export async function initMessageLogger (dataPath: string): Promise<boolean> {
   }
 }
 
-/**
- * 记录消息
- */
+// 记录消息
 export function logMessage (record: Omit<MessageRecord, 'id' | 'created_at'>): void {
   const targetId = record.message_type === 'group' ? record.group_id : record.user_id;
 
@@ -184,9 +169,7 @@ export function logMessage (record: Omit<MessageRecord, 'id' | 'created_at'>): v
   dirtyFiles.add(cacheKey);
 }
 
-/**
- * 查询消息
- */
+// 查询消息
 export function queryMessages (options: QueryOptions = {}): MessageRecord[] {
   const {
     user_id,
@@ -248,9 +231,7 @@ export function queryMessages (options: QueryOptions = {}): MessageRecord[] {
   return results.slice(offset, offset + limit);
 }
 
-/**
- * 获取消息统计
- */
+// 获取消息统计
 export function getMessageStats (group_id?: string): {
   total: number;
   today: number;
@@ -293,9 +274,7 @@ export function getMessageStats (group_id?: string): {
   };
 }
 
-/**
- * 根据 message_id 获取消息
- */
+// 根据 message_id 获取消息
 export function getMessageById (message_id: string): MessageRecord | null {
   try {
     const files = readdirSync(LOG_DIR).filter(f => f.endsWith('.json'));
@@ -311,9 +290,7 @@ export function getMessageById (message_id: string): MessageRecord | null {
   return null;
 }
 
-/**
- * 清理旧消息（保留最近 N 天）
- */
+// 清理旧消息（保留最近 N 天）
 export function cleanupOldMessages (days: number = 7): number {
   const cutoff = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
   let totalDeleted = 0;
@@ -342,9 +319,7 @@ export function cleanupOldMessages (days: number = 7): number {
   return totalDeleted;
 }
 
-/**
- * 关闭消息日志记录器
- */
+// 关闭消息日志记录器
 export function closeMessageLogger (): void {
   if (saveTimer) {
     clearInterval(saveTimer);
@@ -355,23 +330,17 @@ export function closeMessageLogger (): void {
   saveAllDirtyFiles();
 }
 
-/**
- * 获取存储类型
- */
+// 获取存储类型
 export function getStorageType (): 'json' | 'memory' {
   return LOG_DIR ? 'json' : 'memory';
 }
 
-/**
- * 获取日志目录
- */
+// 获取日志目录
 export function getLogDirectory (): string {
   return LOG_DIR;
 }
 
-/**
- * 获取所有日志文件列表
- */
+// 获取所有日志文件列表
 export function getLogFiles (): { name: string; type: 'group' | 'private'; id: string; count: number; }[] {
   const result: { name: string; type: 'group' | 'private'; id: string; count: number; }[] = [];
 
@@ -406,9 +375,7 @@ export function getLogFiles (): { name: string; type: 'group' | 'private'; id: s
   return result;
 }
 
-/**
- * 搜索消息（支持正则）
- */
+// 搜索消息（支持正则）
 export function searchMessages (pattern: string, options: QueryOptions = {}): MessageRecord[] {
   const { group_id, user_id, limit = 20 } = options;
 
