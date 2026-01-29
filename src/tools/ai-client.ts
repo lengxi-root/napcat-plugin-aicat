@@ -16,75 +16,31 @@ export class AIClient {
 
   // 带工具调用的对话
   async chatWithTools (messages: AIMessage[], tools: Tool[]): Promise<AIResponse> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeout);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const payload: Record<string, unknown> = { model: this.model, messages };
+      if (tools.length) { payload.tools = tools; payload.tool_choice = 'auto'; }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
-      const payload: Record<string, unknown> = {
-        model: this.model,
-        messages,
-      };
-
-      if (tools.length > 0) {
-        payload.tools = tools;
-        payload.tool_choice = 'auto';
-      }
-
-      // 构建请求头（如果没有 apiKey 则不发送 Authorization）
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
-
-      // 直接使用配置的 URL
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[AIClient] 请求失败: ${response.status} - ${errorText.slice(0, 500)}`);
-        return {
-          choices: [],
-          error: `HTTP错误: ${response.status}`,
-          detail: errorText.slice(0, 500),
-        };
-      }
-
-      return await response.json() as AIResponse;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return { choices: [], error: '请求超时' };
-      }
-      console.error(`[AIClient] 请求异常:`, error);
-      return { choices: [], error: String(error) };
+      const res = await fetch(this.baseUrl, { method: 'POST', headers, body: JSON.stringify(payload), signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) return { choices: [], error: `HTTP错误: ${res.status}`, detail: (await res.text()).slice(0, 500) };
+      return await res.json() as AIResponse;
+    } catch (e) {
+      clearTimeout(timer);
+      if (e instanceof Error && e.name === 'AbortError') return { choices: [], error: '请求超时' };
+      return { choices: [], error: String(e) };
     }
   }
 
-  // 简单对话（无工具）
+  // 简单对话
   async chatSimple (messages: AIMessage[]): Promise<string> {
-    try {
-      const response = await this.chatWithTools(messages, []);
-      return response.choices?.[0]?.message?.content || '';
-    } catch (error) {
-      return `AI 请求失败: ${String(error)}`;
-    }
+    const res = await this.chatWithTools(messages, []);
+    return res.choices?.[0]?.message?.content || '';
   }
 
-  // 更新模型
-  setModel (model: string): void {
-    this.model = model;
-  }
-
-  // 获取当前模型
-  getModel (): string {
-    return this.model;
-  }
+  setModel (model: string): void { this.model = model; }
+  getModel (): string { return this.model; }
 }

@@ -6,56 +6,24 @@ import type { PluginConfig } from '../types';
 import { DEFAULT_PLUGIN_CONFIG, DEFAULT_AI_CONFIG } from '../config';
 
 class PluginState {
-  private _logger: PluginLogger | null = null;
-  private _actions: ActionMap | undefined;
-  private _adapterName: string = '';
-  private _networkConfig: NetworkAdapterConfig | null = null;
-  private _config: PluginConfig = { ...DEFAULT_PLUGIN_CONFIG };
-  private _currentModel: string = DEFAULT_AI_CONFIG.model;
-  private _verificationCleanupInterval: ReturnType<typeof setInterval> | null = null;
+  logger: PluginLogger | null = null;
+  actions: ActionMap | undefined;
+  adapterName: string = '';
+  networkConfig: NetworkAdapterConfig | null = null;
+  config: PluginConfig = { ...DEFAULT_PLUGIN_CONFIG };
+  currentModel: string = DEFAULT_AI_CONFIG.model;
+  private _cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
-  get logger() { return this._logger; }
-  get actions() { return this._actions; }
-  get adapterName() { return this._adapterName; }
-  get networkConfig() { return this._networkConfig; }
-  get config() { return this._config; }
-  get currentModel() { return this._currentModel; }
+  setVerificationCleanupInterval (interval: ReturnType<typeof setInterval>): void { this._cleanupInterval = interval; }
+  clearVerificationCleanupInterval (): void { if (this._cleanupInterval) { clearInterval(this._cleanupInterval); this._cleanupInterval = null; } }
 
-  set logger(value: PluginLogger | null) { this._logger = value; }
-  set actions(value: ActionMap | undefined) { this._actions = value; }
-  set adapterName(value: string) { this._adapterName = value; }
-  set networkConfig(value: NetworkAdapterConfig | null) { this._networkConfig = value; }
-  set config(value: PluginConfig) { this._config = value; }
-  set currentModel(value: string) { this._currentModel = value; }
-
-  updateConfig(partial: Partial<PluginConfig>): void {
-    this._config = { ...this._config, ...partial };
+  log (level: 'info' | 'warn' | 'error', msg: string, ...args: unknown[]): void {
+    if (!this.logger) return;
+    this.logger[level](`[AI Cat] ${msg}`, ...args);
   }
 
-  setVerificationCleanupInterval(interval: ReturnType<typeof setInterval>): void {
-    this._verificationCleanupInterval = interval;
-  }
-
-  clearVerificationCleanupInterval(): void {
-    if (this._verificationCleanupInterval) {
-      clearInterval(this._verificationCleanupInterval);
-      this._verificationCleanupInterval = null;
-    }
-  }
-
-  log(level: 'info' | 'warn' | 'error', message: string, ...args: unknown[]): void {
-    if (!this._logger) return;
-    const prefix = '[AI Cat]';
-    switch (level) {
-      case 'info': this._logger.info(`${prefix} ${message}`, ...args); break;
-      case 'warn': this._logger.warn(`${prefix} ${message}`, ...args); break;
-      case 'error': this._logger.error(`${prefix} ${message}`, ...args); break;
-    }
-  }
-
-  debug(message: string, ...args: unknown[]): void {
-    if (!this._logger || !this._config.debug) return;
-    this._logger.info(`[AI Cat] [DEBUG] ${message}`, ...args);
+  debug (msg: string, ...args: unknown[]): void {
+    if (this.logger && this.config.debug) this.logger.info(`[AI Cat] [DEBUG] ${msg}`, ...args);
   }
 }
 

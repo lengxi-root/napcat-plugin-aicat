@@ -1,13 +1,9 @@
-// NapCat AI Cat 插件 - 智能猫娘群管助手 @author 冷曦 @version 1.0.0
-
+// NapCat AI Cat 插件 @author 冷曦 @version 1.0.0
 import type { PluginModule, NapCatPluginContext, PluginConfigSchema } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import { EventType } from 'napcat-types/napcat-onebot/event/index';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
+import path, { dirname } from 'path';
 import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST } from './config';
 import { pluginState } from './core/state';
@@ -19,195 +15,88 @@ import { isOwner, initOwnerDataDir, cleanupExpiredVerifications, setNapCatLogger
 import { commandManager, initDataDir } from './managers/custom-commands';
 import { taskManager, initTasksDataDir } from './managers/scheduled-tasks';
 import { userWatcherManager, initWatchersDataDir } from './managers/user-watcher';
-import { initMessageLogger, logMessage, cleanupOldMessages, closeMessageLogger, getStorageType } from './managers/message-logger';
-import type { NetworkAdapterConfig } from 'napcat-types/napcat-onebot/config/config';
+import { initMessageLogger, logMessage, cleanupOldMessages, closeMessageLogger } from './managers/message-logger';
 
-// 获取当前插件文件所在目录
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// === 配置 UI ===
-// 配置 UI 导出
 export let plugin_config_ui: PluginConfigSchema = [];
 
-// === 插件生命周期 ===
 // 插件初始化
 const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext) => {
-  // 初始化状态
   pluginState.logger = ctx.logger;
   pluginState.actions = ctx.actions;
   pluginState.adapterName = ctx.adapterName;
   pluginState.networkConfig = ctx.pluginManager.config;
-
   pluginState.log('info', 'AI Cat 插件正在初始化喵～');
 
-  // 初始化配置 UI
   plugin_config_ui = ctx.NapCatConfig.combine(
-    ctx.NapCatConfig.html('<div style="padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px;"><h3>🐱 AI Cat 插件配置</h3><p>智能猫娘助手 - xy 帮助可以查看所有指令</p><p style="margin-top: 8px; color: #666;">💬 加入交流群: 631348711</p></div>'),
-    ctx.NapCatConfig.text('prefix', '指令前缀', 'xy', '触发 AI 对话的指令前缀，如 xy、ai 等'),
-    ctx.NapCatConfig.boolean('enableReply', '启用回复', true, '是否启用消息回复功能'),
-    ctx.NapCatConfig.text('botName', '机器人名称', '汐雨', '机器人的显示名称'),
+    ctx.NapCatConfig.html('<div style="padding:10px;background:rgba(0,0,0,0.05);border-radius:8px"><h3>🐱 AI Cat 插件</h3><p>智能猫娘助手 - xy帮助查看指令</p><p style="margin-top:8px;color:#666;font-size:12px">💬 交流群：631348711</p></div>'),
+    ctx.NapCatConfig.text('prefix', '指令前缀', 'xy', '触发AI对话的前缀'),
+    ctx.NapCatConfig.boolean('enableReply', '启用回复', true, '是否启用消息回复'),
+    ctx.NapCatConfig.text('botName', '机器人名称', '汐雨', '机器人显示名称'),
     ctx.NapCatConfig.text('confirmMessage', '确认消息', '汐雨收到喵～', '收到指令后的确认回复'),
-    ctx.NapCatConfig.text('ownerQQs', '主人QQ', '', '主人QQ号列表，多个用逗号分隔（如：123456,789012）'),
-    ctx.NapCatConfig.html('<div style="padding: 8px; margin-top: 10px; background: rgba(0,100,200,0.1); border-radius: 6px;"><strong>🤖 AI API 配置</strong></div>'),
-    ctx.NapCatConfig.select('apiSource', 'API 来源', [
-      { label: '🏠 内置 API（免费）', value: 'builtin' },
-      { label: '🔧 自定义 OpenAI API', value: 'custom' },
-    ], 'builtin', '选择使用内置API或自定义OpenAI兼容API'),
-    ctx.NapCatConfig.select('model', '内置 AI 模型', MODEL_LIST.map(m => ({ label: m, value: m })), 'gpt-5', '内置API使用的模型'),
-    ctx.NapCatConfig.html('<div style="padding: 6px; margin-top: 8px; background: rgba(255,165,0,0.1); border-radius: 4px; font-size: 12px;">⬇️ 以下配置仅在选择"自定义API"时生效</div>'),
-    ctx.NapCatConfig.text('customApiUrl', '自定义 API 地址', '', 'OpenAI 兼容的完整 URL，如 https://api.openai.com/v1/chat/completions'),
-    ctx.NapCatConfig.text('customApiKey', '自定义 API 密钥', '', 'API Key（sk-xxx）'),
-    ctx.NapCatConfig.text('customModel', '自定义模型名称', 'gpt-4o', '如 gpt-4o、gpt-3.5-turbo、claude-3-opus 等'),
-    ctx.NapCatConfig.select('maxContextTurns', '最大上下文轮数', [
-      { label: '5 轮', value: 5 },
-      { label: '10 轮', value: 10 },
-      { label: '15 轮', value: 15 },
-      { label: '20 轮', value: 20 },
-    ], 10, '保留的对话上下文轮数'),
-    ctx.NapCatConfig.boolean('debug', '调试模式', false, '开启后显示详细的调试日志')
+    ctx.NapCatConfig.text('ownerQQs', '主人QQ', '', '多个用逗号分隔'),
+    ctx.NapCatConfig.html('<div style="padding:8px;margin-top:10px;background:rgba(0,100,200,0.1);border-radius:6px"><strong>🤖 AI API配置</strong></div>'),
+    ctx.NapCatConfig.select('apiSource', 'API来源', [{ label: '🏠 内置API（免费）', value: 'builtin' }, { label: '🔧 自定义API', value: 'custom' }], 'builtin', '选择API来源'),
+    ctx.NapCatConfig.select('model', '内置模型', MODEL_LIST.map(m => ({ label: m, value: m })), 'gpt-5', '内置API模型'),
+    ctx.NapCatConfig.html('<div style="padding:6px;margin-top:8px;background:rgba(255,165,0,0.1);border-radius:4px;font-size:12px">⬇️ 以下配置仅"自定义API"生效</div>'),
+    ctx.NapCatConfig.text('customApiUrl', '自定义API地址', '', '如 https://api.openai.com/v1/chat/completions'),
+    ctx.NapCatConfig.text('customApiKey', '自定义API密钥', '', '如 sk-xxx'),
+    ctx.NapCatConfig.text('customModel', '自定义模型', 'gpt-4o', '如 gpt-4o'),
+    ctx.NapCatConfig.select('maxContextTurns', '上下文轮数', [{ label: '5轮', value: 5 }, { label: '10轮', value: 10 }, { label: '15轮', value: 15 }, { label: '20轮', value: 20 }], 10, '保留的对话轮数'),
+    ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细日志')
   );
 
-  // 加载已保存的配置
-  try {
-    if (fs.existsSync(ctx.configPath)) {
-      const savedConfig = JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8'));
-      pluginState.config = { ...DEFAULT_PLUGIN_CONFIG, ...savedConfig };
-      pluginState.log('info', `配置已加载，指令前缀: ${pluginState.config.prefix}`);
-    }
-  } catch (e) {
-    pluginState.log('warn', '加载配置失败，使用默认配置');
+  if (fs.existsSync(ctx.configPath)) {
+    pluginState.config = { ...DEFAULT_PLUGIN_CONFIG, ...JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8')) };
   }
 
-  // 设置当前模型
-  if (pluginState.config.model) {
-    pluginState.currentModel = pluginState.config.model;
-    pluginState.log('info', `AI 模型: ${pluginState.currentModel}`);
-  }
+  if (pluginState.config.model) pluginState.currentModel = pluginState.config.model;
+  if (pluginState.config.ownerQQs) setConfigOwners(pluginState.config.ownerQQs);
+  if (ctx.logger) setNapCatLogger((msg: string) => ctx.logger?.info(msg));
 
-  // 设置配置中的主人QQ
-  if (pluginState.config.ownerQQs) {
-    setConfigOwners(pluginState.config.ownerQQs);
-    pluginState.log('info', `主人QQ已设置: ${pluginState.config.ownerQQs}`);
-  }
+  const dataPath = ctx.configPath ? dirname(ctx.configPath) : path.join(process.cwd(), 'data');
+  initDataDir(dataPath);
+  initTasksDataDir(dataPath);
+  initWatchersDataDir(dataPath);
+  initOwnerDataDir(dataPath);
+  await initMessageLogger(dataPath);
 
-  // 设置 NapCat 日志器
-  try {
-    if (ctx.logger && typeof ctx.logger.info === 'function') {
-      setNapCatLogger((msg: string) => ctx.logger?.info(msg));
-    }
-  } catch {
-    // 静默失败
-  }
+  pluginState.setVerificationCleanupInterval(setInterval(() => cleanupExpiredVerifications(), 60000));
+  setInterval(() => cleanupOldMessages(7), 24 * 60 * 60 * 1000);
 
-  // 初始化数据目录（ctx.configPath 所在目录即为 data 目录）
-  const pluginDataPath = ctx.configPath
-    ? dirname(ctx.configPath)
-    : join(__dirname, '..', 'data');
-
-  initDataDir(pluginDataPath);
-  initTasksDataDir(pluginDataPath);
-  initWatchersDataDir(pluginDataPath);
-  initOwnerDataDir(pluginDataPath);
-
-  // 初始化消息日志记录器（data/log 目录）
-  await initMessageLogger(pluginDataPath);
-
-  // 启动验证码清理定时器
-  pluginState.setVerificationCleanupInterval(
-    setInterval(() => cleanupExpiredVerifications(), 60000)
-  );
-
-  // 每天清理旧消息
-  setInterval(() => {
-    const deleted = cleanupOldMessages(7);
-    if (deleted > 0) {
-      pluginState.log('info', `已清理 ${deleted} 条过期消息`);
-    }
-  }, 24 * 60 * 60 * 1000);
-
-  // 设置定时任务消息发送器
-  taskManager.setMessageSender(async (targetType, targetId, content) => {
+  taskManager.setMessageSender(async (type, id, content) => {
     if (!pluginState.actions || !pluginState.networkConfig) return;
-    const message = taskManager.parseMessageContent(content);
-    try {
-      if (targetType === 'group') {
-        await pluginState.actions.call('send_group_msg', { group_id: targetId, message } as never, pluginState.adapterName, pluginState.networkConfig);
-      } else {
-        await pluginState.actions.call('send_private_msg', { user_id: targetId, message } as never, pluginState.adapterName, pluginState.networkConfig);
-      }
-    } catch (error) {
-      pluginState.log('error', '定时任务发送消息失败:', error);
-    }
+    const msg = taskManager.parseMessageContent(content);
+    const action = type === 'group' ? 'send_group_msg' : 'send_private_msg';
+    const param = type === 'group' ? { group_id: id, message: msg } : { user_id: id, message: msg };
+    await pluginState.actions.call(action, param as never, pluginState.adapterName, pluginState.networkConfig).catch(() => { });
   });
 
-  // 设置用户检测器 API 调用器
   userWatcherManager.setApiCaller(async (action, params) => {
-    if (!pluginState.actions || !pluginState.networkConfig) {
-      return { success: false, error: 'actions 未初始化' };
-    }
+    if (!pluginState.actions || !pluginState.networkConfig) return { success: false, error: 'actions未初始化' };
     return executeApiTool(pluginState.actions, pluginState.adapterName, pluginState.networkConfig, { action, params });
   });
 
-  // 启动定时任务调度器
   taskManager.startScheduler();
-
   pluginState.log('info', 'AI Cat 插件初始化完成喵～');
 };
 
 // 获取配置
-export const plugin_get_config = async (): Promise<PluginConfig> => {
-  return pluginState.config;
-};
+export const plugin_get_config = async (): Promise<PluginConfig> => pluginState.config;
 
 // 保存配置
 export const plugin_set_config = async (ctx: NapCatPluginContext, config: PluginConfig): Promise<void> => {
   pluginState.config = config;
-
-  // 更新主人QQ列表
-  if (config.ownerQQs !== undefined) {
-    setConfigOwners(config.ownerQQs);
-    pluginState.log('info', `主人QQ已更新: ${config.ownerQQs}`);
-  }
-
-  // 更新 AI 模型（内置 API 使用）
-  if (config.model) {
-    pluginState.currentModel = config.model;
-    pluginState.log('info', `内置 AI 模型已更新: ${config.model}`);
-  }
-
-  // 更新 API 来源
-  if (config.apiSource) {
-    const sourceLabel = config.apiSource === 'custom' ? '自定义 API' : '内置 API';
-    pluginState.log('info', `API 来源已切换: ${sourceLabel}`);
-    if (config.apiSource === 'custom') {
-      if (config.customApiUrl) {
-        pluginState.log('info', `自定义 API 地址: ${config.customApiUrl}`);
-      }
-      if (config.customModel) {
-        pluginState.log('info', `自定义模型: ${config.customModel}`);
-      }
-    }
-  }
-
-  // 保存到文件
+  if (config.ownerQQs !== undefined) setConfigOwners(config.ownerQQs);
+  if (config.model) pluginState.currentModel = config.model;
   if (ctx?.configPath) {
-    try {
-      const configDir = path.dirname(ctx.configPath);
-      if (!fs.existsSync(configDir)) {
-        fs.mkdirSync(configDir, { recursive: true });
-      }
-      fs.writeFileSync(ctx.configPath, JSON.stringify(config, null, 2), 'utf-8');
-      pluginState.log('info', `配置已保存，新前缀: ${config.prefix}`);
-    } catch (e) {
-      pluginState.log('error', '保存配置失败');
-      throw e;
-    }
+    const dir = path.dirname(ctx.configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(ctx.configPath, JSON.stringify(config, null, 2), 'utf-8');
   }
 };
 
 // 插件清理
-const plugin_cleanup: PluginModule['plugin_cleanup'] = async (_ctx: NapCatPluginContext) => {
+const plugin_cleanup: PluginModule['plugin_cleanup'] = async () => {
   pluginState.log('info', 'AI Cat 插件正在卸载喵～');
   taskManager.stopScheduler();
   pluginState.clearVerificationCleanupInterval();
@@ -217,75 +106,30 @@ const plugin_cleanup: PluginModule['plugin_cleanup'] = async (_ctx: NapCatPlugin
 // 消息处理
 const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPluginContext, event: OB11Message) => {
   if (event.post_type !== EventType.MESSAGE) return;
-
-  const rawMessage = event.raw_message || '';
-  const userId = String(event.user_id);
-  const groupId = event.group_id ? String(event.group_id) : undefined;
-  const messageId = String(event.message_id);
+  const raw = event.raw_message || '', userId = String(event.user_id), groupId = event.group_id ? String(event.group_id) : undefined;
   const sender = event.sender as { nickname?: string; } | undefined;
-  const userName = sender?.nickname || '';
 
-  // 记录消息到日志
-  try {
-    logMessage({
-      message_id: messageId,
-      user_id: userId,
-      user_name: userName,
-      group_id: groupId || '',
-      group_name: '',
-      message_type: event.message_type,
-      content: rawMessage.slice(0, 500),
-      raw_message: rawMessage,
-      timestamp: event.time,
-    });
-  } catch {
-    // 静默失败
-  }
+  logMessage({ message_id: String(event.message_id), user_id: userId, user_name: sender?.nickname || '', group_id: groupId || '', group_name: '', message_type: event.message_type, content: raw.slice(0, 500), raw_message: raw, timestamp: event.time });
 
-  // 用户检测器检查
-  try {
-    const watchResult = await userWatcherManager.checkAndExecute(userId, groupId || '', rawMessage, messageId);
-    if (watchResult) {
-      pluginState.log('info', `用户检测器触发: ${watchResult.watcherId} -> ${watchResult.action}`);
-    }
-  } catch (error) {
-    pluginState.log('error', '用户检测器处理失败:', error);
-  }
+  const watchResult = await userWatcherManager.checkAndExecute(userId, groupId || '', raw, String(event.message_id)).catch(() => null);
+  if (watchResult) pluginState.log('info', `检测器触发: ${watchResult.watcherId}`);
 
-  // 自定义指令匹配
-  try {
-    const cmdResponse = await commandManager.matchAndExecute(rawMessage.trim(), userId, groupId || '', userName);
-    if (cmdResponse) {
-      await sendReply(event, cmdResponse, ctx);
-      return;
-    }
-  } catch (error) {
-    pluginState.log('error', '自定义指令处理失败:', error);
-  }
+  const cmdResp = await commandManager.matchAndExecute(raw.trim(), userId, groupId || '', sender?.nickname || '').catch(() => null);
+  if (cmdResp) { await sendReply(event, cmdResp, ctx); return; }
 
-  // Packet 命令处理（仅主人可用）
   if (isOwner(userId) && ctx.actions) {
-    const packetResult = await handlePacketCommands(rawMessage, event, ctx);
+    const packetResult = await handlePacketCommands(raw, event, ctx);
     if (packetResult) return;
   }
 
-  // 处理消息内容
-  const { content: processedMessage, replyMessageId } = processMessageContent(rawMessage);
-
-  // 检查是否启用回复功能
+  const { content, replyMessageId } = processMessageContent(raw);
   if (pluginState.config.enableReply === false) return;
 
-  // 使用配置的前缀进行命令匹配
   const prefix = pluginState.config.prefix || 'xy';
-  const prefixRegex = new RegExp(`^${prefix}\\s*(.*)`, 'is');
-  const prefixMatch = processedMessage.match(prefixRegex);
-  if (!prefixMatch) return;
+  const match = content.match(new RegExp(`^${prefix}\\s*(.*)`, 'is'));
+  if (!match) return;
 
-  const command = prefixMatch[1].trim();
-
-  // 处理命令
-  await handleCommand(event, command, ctx, replyMessageId);
+  await handleCommand(event, match[1].trim(), ctx, replyMessageId);
 };
 
-// === 导出 ===
 export { plugin_init, plugin_onmessage, plugin_cleanup };
