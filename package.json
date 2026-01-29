@@ -1,0 +1,19 @@
+{
+  "name": "napcat-plugin-aicat",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.mjs",
+  "description": "AI Cat - 智能猫娘助手插件",
+  "author": "冷曦",
+  "dependencies": {
+    "napcat-types": "0.0.9"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  },
+  "scripts": {
+    "build": "vite build"
+  }
+}
