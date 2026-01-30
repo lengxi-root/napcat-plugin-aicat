@@ -8,7 +8,7 @@ import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST } from './config';
 import { pluginState } from './core/state';
 import { handleCommand } from './handlers/command-handler';
-import { handlePacketCommands } from './handlers/packet-handler';
+import { handlePacketCommands, handlePublicPacketCommands } from './handlers/packet-handler';
 import { processMessageContent, sendReply } from './utils/message';
 import { executeApiTool } from './tools/api-tools';
 import { isOwner, initOwnerDataDir, cleanupExpiredVerifications, setNapCatLogger, setConfigOwners } from './managers/owner-manager';
@@ -16,6 +16,7 @@ import { commandManager, initDataDir } from './managers/custom-commands';
 import { taskManager, initTasksDataDir } from './managers/scheduled-tasks';
 import { userWatcherManager, initWatchersDataDir } from './managers/user-watcher';
 import { initMessageLogger, logMessage, cleanupOldMessages, closeMessageLogger } from './managers/message-logger';
+import { handleNoticeEvent, type NoticeEvent } from './managers/operation-tracker';
 
 export let plugin_config_ui: PluginConfigSchema = [];
 
@@ -42,7 +43,9 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.text('customApiKey', '自定义API密钥', '', '如 sk-xxx'),
     ctx.NapCatConfig.text('customModel', '自定义模型', 'gpt-4o', '如 gpt-4o'),
     ctx.NapCatConfig.select('maxContextTurns', '上下文轮数', [{ label: '5轮', value: 5 }, { label: '10轮', value: 10 }, { label: '15轮', value: 15 }, { label: '20轮', value: 20 }], 10, '保留的对话轮数'),
-    ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细日志')
+    ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细日志'),
+    ctx.NapCatConfig.html('<div style="padding:8px;margin-top:10px;background:rgba(100,0,200,0.1);border-radius:6px"><strong>🔧 调试工具配置</strong></div>'),
+    ctx.NapCatConfig.boolean('allowPublicPacket', '取指令公开', false, '允许所有人使用"取"和"取上一条"指令')
   );
 
   if (fs.existsSync(ctx.configPath)) {
@@ -117,6 +120,13 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   const cmdResp = await commandManager.matchAndExecute(raw.trim(), userId, groupId || '', sender?.nickname || '').catch(() => null);
   if (cmdResp) { await sendReply(event, cmdResp, ctx); return; }
 
+  // 公开的"取"指令（如果配置允许）
+  if (pluginState.config.allowPublicPacket && ctx.actions) {
+    const publicResult = await handlePublicPacketCommands(raw, event, ctx);
+    if (publicResult) return;
+  }
+
+  // 主人专属的 Packet 指令
   if (isOwner(userId) && ctx.actions) {
     const packetResult = await handlePacketCommands(raw, event, ctx);
     if (packetResult) return;
@@ -132,4 +142,17 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   await handleCommand(event, match[1].trim(), ctx, replyMessageId);
 };
 
-export { plugin_init, plugin_onmessage, plugin_cleanup };
+// 事件处理（接收所有事件，包括通知事件）
+const plugin_onevent: PluginModule['plugin_onevent'] = async (_ctx: NapCatPluginContext, event: unknown) => {
+  const e = event as { post_type?: string; notice_type?: string; };
+
+  // 处理通知事件（禁言、踢人等操作的确认）
+  if (e.post_type === 'notice' && e.notice_type) {
+    const handled = handleNoticeEvent(event as NoticeEvent);
+    if (handled) {
+      pluginState.debug(`[Notice] 操作已确认: ${e.notice_type}`);
+    }
+  }
+};
+
+export { plugin_init, plugin_onmessage, plugin_onevent, plugin_cleanup };

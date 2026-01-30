@@ -6,38 +6,54 @@ import { MODEL_LIST } from '../config';
 import { contextManager } from '../managers/context-manager';
 import { isOwner, startOwnerVerification, verifyOwnerCode, removeOwner, listOwners } from '../managers/owner-manager';
 import { userWatcherManager } from '../managers/user-watcher';
-import { sendReply } from '../utils/message';
+import { sendReply, sendForwardMsg } from '../utils/message';
 import { handleAICommand } from './ai-handler';
 
-// 处理帮助
+// 处理帮助（使用单层合并转发）
 async function handleHelp (event: OB11Message, userId: string, ctx: NapCatPluginContext): Promise<void> {
   const isMaster = isOwner(userId), prefix = pluginState.config.prefix || 'xy', name = pluginState.config.botName || '汐雨';
-  let help = `🐱 ${name}猫娘助手 v1.0.0
-【基础指令】
-${prefix} <内容> - AI对话
+
+  const sections: { title: string; content: string; }[] = [
+    {
+      title: `🐱 ${name}猫娘助手 v1.0.0`,
+      content: '欢迎使用喵～',
+    },
+    {
+      title: '📌 基础指令',
+      content: `${prefix} <内容> - AI对话
 ${prefix} 帮助 - 显示帮助
 ${prefix} 上下文 - 对话状态
 ${prefix} 清除上下文 - 清除历史
-${prefix} 检测器列表 - 查看检测器
+${prefix} 检测器列表 - 查看检测器`,
+    },
+    {
+      title: '👑 主人申请',
+      content: `${prefix} 设置主人 - 申请成为主人
+${prefix} 验证主人 <验证码> - 验证身份`,
+    },
+  ];
 
-【主人申请】
-${prefix} 设置主人 - 申请成为主人
-${prefix} 验证主人 <验证码> - 验证身份`;
-
-  if (isMaster) help += `
-
-【主人管理】
-${prefix} 主人列表 - 查看所有主人
+  if (isMaster) {
+    sections.push({
+      title: '🔧 主人管理',
+      content: `${prefix} 主人列表 - 查看所有主人
 ${prefix} 移除主人 <QQ号> - 移除主人
 ${prefix} 模型列表 - 查看AI模型
-${prefix} 切换模型 <数字> - 切换模型
+${prefix} 切换模型 <数字> - 切换模型`,
+    });
+    sections.push({
+      title: '🔬 Packet调试',
+      content: `取 - 获取引用消息详情
+api <action>\\n{params} - 调用OneBot`,
+    });
+  }
 
-【Packet调试】
-取 - 获取引用消息详情
-api <action>\\n{params} - 调用OneBot`;
+  sections.push({
+    title: '⚙️ 当前状态',
+    content: `前缀: ${prefix}\n模型: ${pluginState.currentModel}`,
+  });
 
-  help += `\n\n当前前缀: ${prefix} | 模型: ${pluginState.currentModel}`;
-  await sendReply(event, help, ctx);
+  await sendForwardMsg(event, sections, ctx);
 }
 
 // 处理模型列表

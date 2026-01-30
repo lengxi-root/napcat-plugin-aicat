@@ -3,6 +3,7 @@ export interface PluginConfig {
   prefix: string; enableReply: boolean; botName: string; confirmMessage: string;
   maxContextTurns: number; ownerQQs: string; model: string; debug: boolean;
   apiSource: 'builtin' | 'custom'; customApiUrl: string; customApiKey: string; customModel: string;
+  allowPublicPacket: boolean;  // 是否允许所有人使用"取"指令
   [key: string]: unknown;
 }
 

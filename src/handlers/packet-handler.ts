@@ -1,4 +1,4 @@
-// Packet 命令处理器（仅主人可用）
+// Packet 命令处理器
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 
@@ -14,7 +14,42 @@ import {
 } from '../tools/packet-tools';
 import { sendReply } from '../utils/message';
 
-// 处理 Packet 相关命令
+// 处理公开的 Packet 指令（取、取上一条）
+export async function handlePublicPacketCommands (
+  rawMessage: string,
+  event: OB11Message,
+  ctx: NapCatPluginContext
+): Promise<boolean> {
+  const content = rawMessage
+    .replace(/\[CQ:reply,id=-?\d+\]/g, '')
+    .replace(/\[CQ:at,qq=\d+\]/g, '')
+    .trim();
+
+  const groupId = event.group_id ? String(event.group_id) : undefined;
+
+  // 取 <seq> - 按序号获取消息
+  const getBySeqMatch = content.match(/^取\s*(\d+)$/);
+  if (getBySeqMatch && groupId) {
+    await handleGetBySeq(getBySeqMatch[1], groupId, event, ctx);
+    return true;
+  }
+
+  // 取 - 获取回复的消息
+  if (content === '取' && groupId) {
+    await handleGetReply(event, groupId, ctx);
+    return true;
+  }
+
+  // 取上一条 - 获取上一条消息
+  if (content === '取上一条' && groupId) {
+    await handleGetPrevious(event, groupId, ctx);
+    return true;
+  }
+
+  return false;
+}
+
+// 处理 Packet 相关命令（仅主人可用）
 export async function handlePacketCommands (
   rawMessage: string,
   event: OB11Message,

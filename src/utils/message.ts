@@ -19,16 +19,72 @@ export async function sendReply (event: OB11Message, content: string, ctx: NapCa
   await ctx.actions.call('send_msg', params, ctx.adapterName, ctx.pluginManager.config).catch(() => { });
 }
 
-// 发送长消息
+// 创建嵌套合并转发消息
+function createNestedForward (title: string, innerNodes: unknown[]): unknown {
+  const botName = pluginState.config.botName || 'AI Cat';
+  return {
+    type: 'node',
+    data: {
+      user_id: 66600000,
+      nickname: title || botName,
+      content: innerNodes,
+    },
+  };
+}
+
+// 创建文本节点
+function createTextNode (text: string, nickname?: string): unknown {
+  return {
+    type: 'node',
+    data: {
+      user_id: 66600000,
+      nickname: nickname || pluginState.config.botName || 'AI Cat',
+      content: [{ type: 'text', data: { text } }],
+    },
+  };
+}
+
+// 发送长消息（使用嵌套合并转发）
 export async function sendLongMessage (event: OB11Message, content: string, ctx: NapCatPluginContext, threshold = 300): Promise<void> {
   if (!ctx.actions || content.length <= threshold) { await sendReply(event, content, ctx); return; }
   const chunks = splitTextToChunks(content, 600);
   if (chunks.length <= 1) { await sendReply(event, content, ctx); return; }
 
-  const nodes = chunks.map(c => ({ type: 'node', data: { user_id: '66600000', nickname: pluginState.config.botName || 'AI Cat', content: [{ type: 'text', data: { text: c } }] } }));
+  const botName = pluginState.config.botName || 'AI Cat';
+  // 内层节点：各个分块
+  const innerNodes = chunks.map(c => createTextNode(c));
+  // 外层嵌套：包裹内层节点
+  const outerNode = createNestedForward(`${botName} 回复`, innerNodes);
+
+  const action = event.group_id ? 'send_group_forward_msg' : 'send_private_forward_msg';
+  const param = event.group_id ? { group_id: String(event.group_id), messages: [outerNode] } : { user_id: String(event.user_id), messages: [outerNode] };
+  await ctx.actions.call(action, param as never, ctx.adapterName, ctx.pluginManager.config).catch(() => sendReply(event, content, ctx));
+}
+
+// 发送嵌套合并转发消息（双层嵌套）
+export async function sendNestedForward (event: OB11Message, title: string, sections: { title: string; content: string; }[], ctx: NapCatPluginContext): Promise<void> {
+  if (!ctx.actions) return;
+
+  // 内层节点：各个分组
+  const innerNodes = sections.map(s => createTextNode(s.content, s.title));
+  // 外层嵌套：包裹内层节点
+  const outerNode = createNestedForward(title, innerNodes);
+
+  const action = event.group_id ? 'send_group_forward_msg' : 'send_private_forward_msg';
+  const param = event.group_id ? { group_id: String(event.group_id), messages: [outerNode] } : { user_id: String(event.user_id), messages: [outerNode] };
+  await ctx.actions.call(action, param as never, ctx.adapterName, ctx.pluginManager.config).catch(() => { });
+}
+
+// 发送单层合并转发消息
+export async function sendForwardMsg (event: OB11Message, sections: { title: string; content: string; }[], ctx: NapCatPluginContext): Promise<void> {
+  if (!ctx.actions) return;
+
+  // 单层节点：直接作为消息列表
+  const nodes = sections.map(s => createTextNode(s.content, s.title));
+
   const action = event.group_id ? 'send_group_forward_msg' : 'send_private_forward_msg';
   const param = event.group_id ? { group_id: String(event.group_id), messages: nodes } : { user_id: String(event.user_id), messages: nodes };
-  await ctx.actions.call(action, param as never, ctx.adapterName, ctx.pluginManager.config).catch(() => sendReply(event, content, ctx));
+  await ctx.actions.call(action, param as never, ctx.adapterName, ctx.pluginManager.config).catch(() => { });
 }
 
 // 分割文本

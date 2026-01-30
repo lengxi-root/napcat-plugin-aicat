@@ -8,6 +8,7 @@ import { DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_TOOLS, O
 import { AIClient } from '../tools/ai-client';
 import { getApiTools, executeApiTool } from '../tools/api-tools';
 import { getWebTools, executeWebTool } from '../tools/web-tools';
+import { getMessageTools, executeMessageTool } from '../tools/message-tools';
 import { getCustomCommandTools, executeCustomCommandTool } from '../managers/custom-commands';
 import { getScheduledTaskTools, executeScheduledTaskTool } from '../managers/scheduled-tasks';
 import { getUserWatcherTools, executeUserWatcherTool } from '../managers/user-watcher';
@@ -32,7 +33,7 @@ export async function handleAICommand (event: OB11Message, instruction: string, 
     : { base_url: DEFAULT_AI_CONFIG.base_url, api_key: DEFAULT_AI_CONFIG.api_key, model: pluginState.currentModel, timeout: DEFAULT_AI_CONFIG.timeout };
   const aiClient = new AIClient(aiConfig);
 
-  const tools: Tool[] = [...getApiTools(), ...getWebTools(), ...getCustomCommandTools(), ...getScheduledTaskTools(), ...getUserWatcherTools()];
+  const tools: Tool[] = [...getApiTools(), ...getWebTools(), ...getMessageTools(), ...getCustomCommandTools(), ...getScheduledTaskTools(), ...getUserWatcherTools()];
   const messages: AIMessage[] = [{ role: 'system', content: generateSystemPrompt(pluginState.config.botName) }];
   const history = contextManager.getContext(userId, groupId);
   if (history.length) messages.push(...history);
@@ -92,10 +93,10 @@ export async function handleAICommand (event: OB11Message, instruction: string, 
         } else if (ADMIN_REQUIRED_APIS.has(action) && params.group_id && groupId && String(params.group_id) !== groupId) {
           result = { success: false, error: '不能跨群操作喵～' };
         } else {
-          result = await executeTool(name, args, ctx);
+          result = await executeTool(name, args, ctx, groupId, userIsOwner);
         }
       } else {
-        result = await executeTool(name, args, ctx);
+        result = await executeTool(name, args, ctx, groupId, userIsOwner);
       }
       allResults.push({ tool: name, result });
       messages.push({ role: 'tool', content: JSON.stringify(result), tool_call_id: tc.id });
@@ -105,16 +106,29 @@ export async function handleAICommand (event: OB11Message, instruction: string, 
 }
 
 // 执行工具
-async function executeTool (name: string, args: Record<string, unknown>, ctx: NapCatPluginContext): Promise<ToolResult> {
+async function executeTool (name: string, args: Record<string, unknown>, ctx: NapCatPluginContext, currentGroupId?: string, isOwnerUser?: boolean): Promise<ToolResult> {
   const customCmds = new Set(['add_custom_command', 'remove_custom_command', 'list_custom_commands', 'toggle_custom_command']);
   const taskTools = new Set(['add_scheduled_task', 'remove_scheduled_task', 'list_scheduled_tasks', 'toggle_scheduled_task', 'run_scheduled_task_now']);
   const watcherTools = new Set(['add_user_watcher', 'remove_user_watcher', 'list_user_watchers', 'toggle_user_watcher']);
   const webTools = new Set(['web_search', 'fetch_url']);
+  const msgTools = new Set(['query_history_messages', 'search_messages', 'get_message_stats', 'get_message_by_id']);
 
   if (customCmds.has(name)) return executeCustomCommandTool(name, args);
   if (taskTools.has(name)) return executeScheduledTaskTool(name, args);
   if (watcherTools.has(name)) return executeUserWatcherTool(name, args);
   if (webTools.has(name)) return executeWebTool(name, args);
+  // 消息查询工具：非主人只能查询当前群
+  if (msgTools.has(name)) {
+    const queryGroupId = args.group_id as string | undefined;
+    if (!isOwnerUser && queryGroupId && currentGroupId && queryGroupId !== currentGroupId) {
+      return { success: false, error: '只能查询当前群的消息记录喵～' };
+    }
+    // 非主人且在群内，自动限定为当前群
+    if (!isOwnerUser && currentGroupId && !queryGroupId) {
+      args.group_id = currentGroupId;
+    }
+    return executeMessageTool(name, args);
+  }
   if (name === 'call_api' && ctx.actions) return executeApiTool(ctx.actions, ctx.adapterName, ctx.pluginManager.config as NetworkAdapterConfig, args);
   return { success: false, error: `未知工具: ${name}` };
 }

@@ -1,8 +1,11 @@
 # 依赖
 node_modules/
+package-lock.json
+pnpm-lock.yaml
 
 # 构建输出
 dist/
+*.mjs
 
 # 日志
 *.log
