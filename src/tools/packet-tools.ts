@@ -5,7 +5,7 @@ interface ActionMap {
   call: (action: string, params: unknown, adapter: string, config: unknown) => Promise<unknown>;
 }
 
-let packetMode: 1 | 2 = 1;
+let packetMode: 1 | 2 = 2;
 export const setPacketMode = (mode: 1 | 2) => { packetMode = mode; };
 export const getPacketMode = () => packetMode;
 

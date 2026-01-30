@@ -44,20 +44,26 @@ function createTextNode (text: string, nickname?: string): unknown {
   };
 }
 
-// 发送长消息（使用嵌套合并转发）
-export async function sendLongMessage (event: OB11Message, content: string, ctx: NapCatPluginContext, threshold = 300): Promise<void> {
-  if (!ctx.actions || content.length <= threshold) { await sendReply(event, content, ctx); return; }
-  const chunks = splitTextToChunks(content, 600);
-  if (chunks.length <= 1) { await sendReply(event, content, ctx); return; }
+// 检查是否需要使用合并转发（超过400字或25行）
+function needsForwardMessage (content: string): boolean {
+  const charLimit = 400;
+  const lineLimit = 25;
+  const lineCount = content.split('\n').length;
+  return content.length > charLimit || lineCount > lineLimit;
+}
 
-  const botName = pluginState.config.botName || 'AI Cat';
-  // 内层节点：各个分块
-  const innerNodes = chunks.map(c => createTextNode(c));
-  // 外层嵌套：包裹内层节点
-  const outerNode = createNestedForward(`${botName} 回复`, innerNodes);
+// 发送长消息（超过400字或25行时使用单层合并转发）
+export async function sendLongMessage (event: OB11Message, content: string, ctx: NapCatPluginContext, isForward = false): Promise<void> {
+  if (!ctx.actions) return;
+  // 已经是合并转发消息或不需要转发，直接发送
+  if (isForward || !needsForwardMessage(content)) { await sendReply(event, content, ctx); return; }
+
+  const chunks = splitTextToChunks(content, 600);
+  // 单层节点：直接作为消息列表发送
+  const nodes = chunks.map(c => createTextNode(c));
 
   const action = event.group_id ? 'send_group_forward_msg' : 'send_private_forward_msg';
-  const param = event.group_id ? { group_id: String(event.group_id), messages: [outerNode] } : { user_id: String(event.user_id), messages: [outerNode] };
+  const param = event.group_id ? { group_id: String(event.group_id), messages: nodes } : { user_id: String(event.user_id), messages: nodes };
   await ctx.actions.call(action, param as never, ctx.adapterName, ctx.pluginManager.config).catch(() => sendReply(event, content, ctx));
 }
 
