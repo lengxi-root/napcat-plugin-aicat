@@ -1,30 +1,72 @@
 // AI Cat 插件配置
 import type { AIConfig, PluginConfig } from './types';
 
+// 默认插件配置
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
-  prefix: 'xy', enableReply: true, botName: '汐雨', confirmMessage: '汐雨收到喵～',
-  maxContextTurns: 10, ownerQQs: '', model: 'gpt-5', debug: false,
-  apiSource: 'builtin', customApiUrl: '', customApiKey: '', customModel: 'gpt-4o',
-  allowPublicPacket: false,
+  prefix: 'xy',
+  enableReply: true,
+  sendConfirmMessage: true,
+  botName: '汐雨',
+  confirmMessage: '汐雨收到喵～',
+  maxContextTurns: 10,
+  ownerQQs: '',
+  model: 'gpt-5',
+  backupModel: 'gemini-2.5-flash',
+  debug: false,
+  apiSource: 'main',
+  customApiUrl: '',
+  customApiKey: '',
+  customModel: 'gpt-4o',
+  allowPublicPacket: true,
 };
 
-export const MODEL_LIST: string[] = ['gpt-5-mini-ca', 'gpt-5-nano-ca', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gpt-4o', 'gpt-4o-mini', 'gpt-5-mini', 'gpt-4', 'gpt-5', 'gpt-5.1'];
+// 主模型列表 (type=1)
+export const MODEL_LIST = [
+  'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.1',
+  'gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4-turbo',
+  'claude-3-5-sonnet', 'claude-3-5-haiku',
+  'deepseek-chat', 'deepseek-reasoner',
+] as const;
 
-export const DEFAULT_AI_CONFIG: AIConfig = { base_url: 'https://i.elaina.vin/api/openai/chat/completions', api_key: '', model: 'gpt-5', timeout: 60000 };
+// 备用模型列表 (type=2)
+export const BACKUP_MODEL_LIST = ['gemini-3-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
 
+// 默认AI配置
+export const DEFAULT_AI_CONFIG: AIConfig = {
+  base_url: 'https://i.elaina.vin/api/openai/chat/completions',
+  api_key: '',
+  model: 'gpt-5',
+  timeout: 60000,
+};
+
+// 上下文配置
 export const CONTEXT_MAX_TURNS = 10;
 export const CONTEXT_EXPIRE_SECONDS = 600;
 export const MAX_ROUNDS = 20;
 
-export const ADMIN_REQUIRED_APIS = new Set(['set_group_ban', 'set_group_kick', 'set_group_admin', 'set_group_card', 'set_group_special_title', 'set_group_name', 'set_group_whole_ban', 'set_group_anonymous_ban', 'set_essence_msg', 'delete_essence_msg', 'send_group_notice', 'set_group_portrait', 'upload_group_file', 'delete_group_file', 'create_group_file_folder']);
+// 权限控制 API 集合
+export const ADMIN_REQUIRED_APIS = new Set([
+  'set_group_ban', 'set_group_kick', 'set_group_admin', 'set_group_card',
+  'set_group_special_title', 'set_group_name', 'set_group_whole_ban',
+  'set_group_anonymous_ban', 'set_essence_msg', 'delete_essence_msg',
+  'send_group_notice', 'set_group_portrait', 'upload_group_file',
+  'delete_group_file', 'create_group_file_folder',
+]);
 
-// 仅主人可调用的敏感API（机器人隐私信息）
-export const OWNER_ONLY_APIS = new Set(['get_friend_list', 'get_group_list', 'get_stranger_info', 'get_login_info', '_get_model_show', 'set_qq_avatar', 'get_credentials', 'get_cookies', 'get_csrf_token']);
+export const OWNER_ONLY_APIS = new Set([
+  'get_friend_list', 'get_group_list', 'get_stranger_info', 'get_login_info',
+  '_get_model_show', 'set_qq_avatar', 'get_credentials', 'get_cookies', 'get_csrf_token',
+]);
 
 export const OWNER_ONLY_TOOLS = new Set(['query_error_logs']);
-export const OWNER_ONLY_CUSTOM_TOOLS = new Set(['add_custom_command', 'remove_custom_command', 'toggle_custom_command', 'add_scheduled_task', 'remove_scheduled_task', 'toggle_scheduled_task', 'run_scheduled_task_now', 'add_user_watcher', 'remove_user_watcher', 'toggle_user_watcher']);
+export const OWNER_ONLY_CUSTOM_TOOLS = new Set([
+  'add_custom_command', 'remove_custom_command', 'toggle_custom_command',
+  'add_scheduled_task', 'remove_scheduled_task', 'toggle_scheduled_task', 'run_scheduled_task_now',
+  'add_user_watcher', 'remove_user_watcher', 'toggle_user_watcher',
+]);
 
-export function generateSystemPrompt (botName: string = '汐雨'): string {
+// 生成系统提示词
+export function generateSystemPrompt(botName = '汐雨'): string {
   return `你是${botName}，基于NapCat的可爱猫娘助手喵～说话带"喵"等语气词，活泼俏皮会撒娇。
 
 【调用方式】使用call_api工具，传入action(接口名)和params(参数对象)
@@ -52,5 +94,3 @@ params: { group_id, messages: [{"type":"node","data":{"user_id":123,"nickname":"
 
 【规则】使用当前群号，不能跨群；回复简短可爱，带猫娘语气喵～`;
 }
-
-export const SYSTEM_PROMPT = generateSystemPrompt();
