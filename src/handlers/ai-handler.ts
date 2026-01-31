@@ -4,7 +4,7 @@ import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import type { NetworkAdapterConfig } from 'napcat-types/napcat-onebot/config/config';
 import type { AIMessage, Tool, ToolResult } from '../types';
 import { pluginState } from '../core/state';
-import { DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, MODEL_LIST, generateSystemPrompt } from '../config';
+import { DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_APIS, OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, MODEL_LIST, generateSystemPrompt } from '../config';
 import { AIClient } from '../tools/ai-client';
 import { getApiTools, executeApiTool } from '../tools/api-tools';
 import { getWebTools, executeWebTool } from '../tools/web-tools';
@@ -88,7 +88,10 @@ export async function handleAICommand (event: OB11Message, instruction: string, 
         result = { success: false, error: '该功能仅主人可用喵～' };
       } else if (name === 'call_api') {
         const action = args.action as string, params = (args.params as Record<string, unknown>) || {};
-        if (ADMIN_REQUIRED_APIS.has(action) && !userPerm.is_admin) {
+        // 敏感API仅主人可用（好友列表、群列表等机器人隐私信息）
+        if (OWNER_ONLY_APIS.has(action) && !userIsOwner) {
+          result = { success: false, error: '该信息仅主人可查询喵～' };
+        } else if (ADMIN_REQUIRED_APIS.has(action) && !userPerm.is_admin) {
           result = { success: false, error: '你不是管理员喵～' };
         } else if (ADMIN_REQUIRED_APIS.has(action) && params.group_id && groupId && String(params.group_id) !== groupId) {
           result = { success: false, error: '不能跨群操作喵～' };

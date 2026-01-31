@@ -65,11 +65,12 @@ class ScheduledTaskManager {
   startScheduler (): void {
     if (this.intervalId) return;
 
+    // 每15秒检查一次，提高定时任务精度
     this.intervalId = setInterval(() => {
       this.checkAndExecuteTasks();
-    }, 60000); // 每分钟检查一次
+    }, 15000);
 
-    console.log('[ScheduledTasks] 调度器已启动');
+    console.log('[ScheduledTasks] 调度器已启动 (每15秒检查)');
   }
 
   // 停止调度器
@@ -103,7 +104,9 @@ class ScheduledTaskManager {
         const lastRun = task.last_run ? new Date(task.last_run) : null;
         if (lastRun) {
           const elapsed = (now.getTime() - lastRun.getTime()) / 1000;
-          if (elapsed >= task.interval_seconds) {
+          // 添加5秒容差，避免因检查周期漂移导致延迟
+          const tolerance = 5;
+          if (elapsed >= task.interval_seconds - tolerance) {
             shouldExecute = true;
           }
         } else {

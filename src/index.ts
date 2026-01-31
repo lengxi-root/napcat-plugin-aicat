@@ -1,7 +1,8 @@
 // NapCat AI Cat 插件 @author 冷曦 @version 1.0.0
 import type { PluginModule, NapCatPluginContext, PluginConfigSchema } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
-import { EventType } from 'napcat-types/napcat-onebot/event/index';
+// EventType 常量（避免运行时依赖 napcat-types）
+const EventType = { MESSAGE: 'message', NOTICE: 'notice', REQUEST: 'request' } as const;
 import fs from 'fs';
 import path, { dirname } from 'path';
 import type { PluginConfig } from './types';
