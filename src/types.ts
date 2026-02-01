@@ -4,6 +4,7 @@ export interface PluginConfig {
   enableReply: boolean;
   sendConfirmMessage: boolean;  // 是否发送确认消息
   botName: string;
+  personality: string;  // AI 个性描述
   confirmMessage: string;
   maxContextTurns: number;
   ownerQQs: string;

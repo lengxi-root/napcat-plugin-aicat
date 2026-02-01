@@ -81,7 +81,7 @@ class UserWatcherManager {
     }
 
     this.watchers.set(watcherId, {
-      target_user_id: String(targetUserId),
+      target_user_id: targetUserId ? String(targetUserId) : '',
       action_type: actionType,
       action_content: actionContent,
       group_id: String(groupId) || '',
@@ -126,7 +126,7 @@ class UserWatcherManager {
   listWatchers(): ToolResult {
     const watcherList = Array.from(this.watchers.entries()).map(([id, w]) => ({
       id,
-      target_user: w.target_user_id,
+      target_user: (!w.target_user_id || w.target_user_id === '*' || w.target_user_id === 'all') ? '全部用户' : w.target_user_id,
       action: w.action_type,
       group: w.group_id || '全部',
       keyword: w.keyword_filter || '全部消息',
@@ -150,8 +150,9 @@ class UserWatcherManager {
     for (const [watcherId, watcher] of this.watchers) {
       if (!watcher.enabled) continue;
 
-      // 检查目标用户
-      if (watcher.target_user_id !== userIdStr) continue;
+      // 检查目标用户（空、*、all 表示监控全部用户）
+      const isAllUsers = !watcher.target_user_id || watcher.target_user_id === '*' || watcher.target_user_id === 'all';
+      if (!isAllUsers && watcher.target_user_id !== userIdStr) continue;
 
       // 检查群限制
       if (watcher.group_id && watcher.group_id !== groupIdStr) continue;
@@ -279,7 +280,7 @@ export const USER_WATCHER_TOOLS: Tool[] = [
         type: 'object',
         properties: {
           watcher_id: { type: 'string', description: '检测器ID，唯一标识' },
-          target_user_id: { type: 'string', description: '目标用户QQ号' },
+          target_user_id: { type: 'string', description: '目标用户QQ号，留空或填*或all表示监控全部用户' },
           action_type: {
             type: 'string',
             enum: ['reply', 'recall', 'ban', 'kick', 'api_call'],
@@ -300,7 +301,7 @@ export const USER_WATCHER_TOOLS: Tool[] = [
           },
           description: { type: 'string', description: '检测器描述' },
         },
-        required: ['watcher_id', 'target_user_id', 'action_type'],
+        required: ['watcher_id', 'action_type'],
       },
     },
   },

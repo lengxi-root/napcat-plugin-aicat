@@ -21,7 +21,7 @@ import { sendReply, sendLongMessage, extractAtUsers } from '../utils/message';
 import { checkUserPermission, buildPermissionInfo } from '../utils/permission';
 
 // 根据配置获取 AI 配置
-function getAIConfig(): AIConfig {
+function getAIConfig (): AIConfig {
   const { apiSource, model, backupModel, customApiUrl, customApiKey, customModel } = pluginState.config;
 
   switch (apiSource) {
@@ -50,7 +50,7 @@ function getAIConfig(): AIConfig {
 }
 
 // 获取所有可用工具
-function getAllTools(): Tool[] {
+function getAllTools (): Tool[] {
   return [
     ...getApiTools(),
     ...getWebTools(),
@@ -62,7 +62,7 @@ function getAllTools(): Tool[] {
 }
 
 // 处理 AI 对话
-export async function handleAICommand(
+export async function handleAICommand (
   event: OB11Message,
   instruction: string,
   ctx: NapCatPluginContext,
@@ -78,7 +78,7 @@ export async function handleAICommand(
   const userPerm = await checkUserPermission(userId, groupId, ctx);
   const userIsOwner = isOwner(userId);
   const atUsers = extractAtUsers(event.message);
-  const sender = event.sender as { nickname?: string } | undefined;
+  const sender = event.sender as { nickname?: string; } | undefined;
 
   // 构建上下文信息
   const contextInfo = [
@@ -94,7 +94,7 @@ export async function handleAICommand(
 
   // 构建消息列表
   const messages: AIMessage[] = [
-    { role: 'system', content: generateSystemPrompt(pluginState.config.botName) },
+    { role: 'system', content: generateSystemPrompt(pluginState.config.botName, pluginState.config.personality) },
     ...contextManager.getContext(userId, groupId),
     { role: 'user', content: contextInfo },
   ];
@@ -104,7 +104,7 @@ export async function handleAICommand(
     await sendReply(event, pluginState.config.confirmMessage || '收到喵～', ctx);
   }
 
-  const allResults: { tool: string; result: ToolResult }[] = [];
+  const allResults: { tool: string; result: ToolResult; }[] = [];
   let hasSentMsg = false;
   let retryCount = 0;
   const maxRetries = 3;
@@ -177,12 +177,12 @@ export async function handleAICommand(
 }
 
 // 带权限检查的工具执行
-async function executeToolWithPermission(
+async function executeToolWithPermission (
   name: string,
   args: Record<string, unknown>,
   ctx: NapCatPluginContext,
   groupId: string | undefined,
-  userPerm: { is_admin: boolean },
+  userPerm: { is_admin: boolean; },
   isOwnerUser: boolean
 ): Promise<ToolResult> {
   // 仅主人可用的工具
@@ -210,7 +210,7 @@ async function executeToolWithPermission(
 }
 
 // 执行工具
-async function executeTool(
+async function executeTool (
   name: string,
   args: Record<string, unknown>,
   ctx: NapCatPluginContext,
@@ -254,7 +254,7 @@ async function executeTool(
 }
 
 // 消息工具权限范围控制
-async function executeMessageToolWithScope(
+async function executeMessageToolWithScope (
   name: string,
   args: Record<string, unknown>,
   currentGroupId?: string,

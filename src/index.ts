@@ -37,6 +37,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.html('<b>📌 基础设置</b>'),
     ctx.NapCatConfig.text('prefix', '指令前缀', 'xy', '触发AI对话的前缀'),
     ctx.NapCatConfig.text('botName', '机器人名称', '汐雨', '机器人显示名称'),
+    ctx.NapCatConfig.text('personality', 'AI个性', '可爱猫娘助手，说话带"喵"等语气词，活泼俏皮会撒娇', 'AI的性格描述，会影响回复风格'),
     ctx.NapCatConfig.text('ownerQQs', '主人QQ', '', '多个用逗号分隔'),
     ctx.NapCatConfig.boolean('enableReply', '启用回复', true, '是否启用消息回复功能'),
     ctx.NapCatConfig.boolean('sendConfirmMessage', '发送确认消息', true, '收到指令后发送确认提示'),
@@ -95,7 +96,9 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   // 配置 API 调用器
   userWatcherManager.setApiCaller(async (action, params) => {
     if (!pluginState.actions || !pluginState.networkConfig) return { success: false, error: 'actions未初始化' };
-    return executeApiTool(pluginState.actions, pluginState.adapterName, pluginState.networkConfig, { action, params });
+    try {
+      return await executeApiTool(pluginState.actions, pluginState.adapterName, pluginState.networkConfig, { action, params });
+    } catch (e) { return { success: false, error: String(e) }; }
   });
 
   taskManager.startScheduler();
