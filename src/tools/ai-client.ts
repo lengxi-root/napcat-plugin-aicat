@@ -2,12 +2,20 @@
 import type { AIConfig, AIMessage, AIResponse, Tool } from '../types';
 import { MODEL_LIST, BACKUP_MODEL_LIST } from '../config';
 
+// 请求附加信息（机器人、主人、用户）
+export interface RequestMeta {
+  bot_id?: string;
+  owner_ids?: string[];
+  user_id?: string;
+}
+
 export class AIClient {
   private baseUrl: string;
   private apiKey: string;
   private model: string;
   private timeout: number;
   private apiType: number;
+  private meta: RequestMeta = {};
 
   constructor(config: AIConfig) {
     this.baseUrl = config.base_url;
@@ -15,6 +23,11 @@ export class AIClient {
     this.model = config.model;
     this.timeout = config.timeout;
     this.apiType = this.getTypeByModel(config.model);
+  }
+
+  // 设置请求附加信息
+  setMeta(meta: RequestMeta): void {
+    this.meta = meta;
   }
 
   // 根据模型判断 API 类型
@@ -35,6 +48,11 @@ export class AIClient {
         messages,
         type: this.apiType,
       };
+
+      // 添加机器人、主人、用户信息
+      if (this.meta.bot_id) payload.bot_id = this.meta.bot_id;
+      if (this.meta.owner_ids?.length) payload.owner_ids = this.meta.owner_ids;
+      if (this.meta.user_id) payload.user_id = this.meta.user_id;
 
       if (tools.length) {
         payload.tools = tools;

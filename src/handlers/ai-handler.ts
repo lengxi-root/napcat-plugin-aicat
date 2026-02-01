@@ -90,6 +90,17 @@ export async function handleAICommand (
 
   // 创建 AI 客户端
   const aiClient = new AIClient(getAIConfig());
+  
+  // 设置请求附加信息（机器人、主人、用户）
+  const ownerQQs = pluginState.config.ownerQQs;
+  const ownerIds = ownerQQs ? ownerQQs.split(/[,，\s]+/).map((s: string) => s.trim()).filter(Boolean) : [];
+  let botId: string | undefined;
+  try {
+    const loginInfo = await ctx.actions?.call('get_login_info', {}, ctx.adapterName, ctx.pluginManager.config) as { user_id?: number | string } | undefined;
+    botId = loginInfo?.user_id ? String(loginInfo.user_id) : undefined;
+  } catch { /* ignore */ }
+  aiClient.setMeta({ bot_id: botId, owner_ids: ownerIds.length ? ownerIds : undefined, user_id: userId });
+  
   const tools = getAllTools();
 
   // 构建消息列表
