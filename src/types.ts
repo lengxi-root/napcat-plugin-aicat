@@ -9,13 +9,13 @@ export interface PluginConfig {
   maxContextTurns: number;
   ownerQQs: string;
   model: string;
-  backupModel: string;
   debug: boolean;
-  apiSource: 'main' | 'backup' | 'custom';
+  apiSource: 'main' | 'custom';
   customApiUrl: string;
   customApiKey: string;
   customModel: string;
   allowPublicPacket: boolean;
+  autoSwitchModel: boolean;  // 自动切换可用模型
   [key: string]: unknown;
 }
 

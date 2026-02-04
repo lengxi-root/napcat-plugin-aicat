@@ -12,25 +12,23 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   maxContextTurns: 10,
   ownerQQs: '',
   model: 'gpt-5',
-  backupModel: 'gemini-2.5-flash',
   debug: false,
   apiSource: 'main',
   customApiUrl: '',
   customApiKey: '',
   customModel: 'gpt-4o',
   allowPublicPacket: true,
+  autoSwitchModel: true,
 };
 
-// 主模型列表 (type=1)
-export const MODEL_LIST = [
+// 模型列表（可从 API 动态更新）
+export let MODEL_LIST: string[] = [
   'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.1',
   'gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4-turbo',
   'claude-3-5-sonnet', 'claude-3-5-haiku',
   'deepseek-chat', 'deepseek-reasoner',
-] as const;
-
-// 备用模型列表 (type=2)
-export const BACKUP_MODEL_LIST = ['gemini-3-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
+  'gemini-2.5-flash', 'gemini-2.5-pro',
+];
 
 // 默认AI配置
 export const DEFAULT_AI_CONFIG: AIConfig = {
@@ -39,6 +37,26 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   model: 'gpt-5',
   timeout: 60000,
 };
+
+// 从 API 获取模型列表
+export async function fetchModelList (): Promise<string[]> {
+  try {
+    const apiBase = DEFAULT_AI_CONFIG.base_url.replace('/chat/completions', '');
+    const res = await fetch(`${apiBase}/models`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json() as { chat?: string[]; success?: boolean; };
+      if (data.success && data.chat?.length) {
+        MODEL_LIST = data.chat;
+      }
+    }
+  } catch { /* ignore */ }
+  return MODEL_LIST;
+}
+
+// 获取模型选项列表
+export function getModelOptions (): { label: string; value: string; }[] {
+  return MODEL_LIST.map(m => ({ label: m, value: m }));
+}
 
 // 上下文配置
 export const CONTEXT_MAX_TURNS = 10;

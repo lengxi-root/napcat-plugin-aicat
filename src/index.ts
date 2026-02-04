@@ -4,7 +4,7 @@ import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import fs from 'fs';
 import path, { dirname } from 'path';
 import type { PluginConfig } from './types';
-import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, BACKUP_MODEL_LIST } from './config';
+import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, fetchModelList, getModelOptions } from './config';
 import { pluginState } from './core/state';
 import { handleCommand } from './handlers/command-handler';
 import { handlePacketCommands, handlePublicPacketCommands } from './handlers/packet-handler';
@@ -30,6 +30,11 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   });
   pluginState.log('info', 'AI Cat 插件正在初始化喵～');
 
+  // 尝试从 API 获取最新模型列表
+  fetchModelList().then(models => {
+    pluginState.log('info', `已获取 ${models.length} 个可用模型`);
+  }).catch(() => { /* ignore */ });
+
   // 配置UI
   plugin_config_ui = ctx.NapCatConfig.combine(
     ctx.NapCatConfig.html('<div style="padding:10px;background:#f5f5f5;border-radius:8px;margin-bottom:10px"><b>🐱 AI Cat 智能猫娘助手</b><br/><span style="color:#666;font-size:13px">使用 <code>xy帮助</code> 查看指令 | 交流群：631348711</span></div>'),
@@ -45,12 +50,11 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     // AI 配置
     ctx.NapCatConfig.html('<b>🤖 AI 配置</b>'),
     ctx.NapCatConfig.select('apiSource', 'API来源', [
-      { label: '主接口 (GPT/Claude)', value: 'main' },
-      { label: '备用接口 (Gemini)', value: 'backup' },
+      { label: '主接口', value: 'main' },
       { label: '自定义API', value: 'custom' },
     ], 'main', '选择AI接口来源'),
-    ctx.NapCatConfig.select('model', '主接口模型', MODEL_LIST.map(m => ({ label: m, value: m })), 'gpt-5', '主接口使用的模型'),
-    ctx.NapCatConfig.select('backupModel', '备用模型', BACKUP_MODEL_LIST.map(m => ({ label: m, value: m })), 'gemini-2.5-flash', '备用接口使用的模型'),
+    ctx.NapCatConfig.select('model', '模型', getModelOptions(), 'gpt-5', '选择AI模型'),
+    ctx.NapCatConfig.boolean('autoSwitchModel', '自动切换模型', true, '模型失败时自动尝试其他可用模型'),
     ctx.NapCatConfig.select('maxContextTurns', '上下文轮数', [5, 10, 15, 20].map(n => ({ label: `${n}轮`, value: n })), 10, '保留的对话历史轮数'),
     // 自定义 API
     ctx.NapCatConfig.html('<b>🔧 自定义API</b> <span style="color:#999;font-size:12px">仅选择自定义API时生效</span>'),
@@ -134,7 +138,7 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   const raw = event.raw_message || '';
   const userId = String(event.user_id);
   const groupId = event.group_id ? String(event.group_id) : undefined;
-  const sender = event.sender as { nickname?: string } | undefined;
+  const sender = event.sender as { nickname?: string; } | undefined;
 
   // 记录消息
   logMessage({
@@ -185,7 +189,7 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
 
 // 事件处理
 const plugin_onevent: PluginModule['plugin_onevent'] = async (_ctx: NapCatPluginContext, event: unknown) => {
-  const e = event as { post_type?: string; notice_type?: string };
+  const e = event as { post_type?: string; notice_type?: string; };
 
   if (e.post_type === 'notice' && e.notice_type) {
     const handled = handleNoticeEvent(event as NoticeEvent);

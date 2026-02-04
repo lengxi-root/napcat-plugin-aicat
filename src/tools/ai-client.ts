@@ -1,6 +1,5 @@
 // AI 客户端 - 调用 OpenAI 兼容 API
 import type { AIConfig, AIMessage, AIResponse, Tool } from '../types';
-import { MODEL_LIST, BACKUP_MODEL_LIST } from '../config';
 
 // 请求附加信息（机器人、主人、用户）
 export interface RequestMeta {
@@ -15,30 +14,31 @@ export class AIClient {
   private model: string;
   private timeout: number;
   private apiType: number;
+  private autoSwitch: boolean;
   private meta: RequestMeta = {};
 
-  constructor(config: AIConfig) {
+  constructor (config: AIConfig, autoSwitch = false) {
     this.baseUrl = config.base_url;
     this.apiKey = config.api_key;
     this.model = config.model;
     this.timeout = config.timeout;
-    this.apiType = this.getTypeByModel(config.model);
+    this.autoSwitch = autoSwitch;
+    this.apiType = autoSwitch ? 100 : 1;  // 100=自动切换, 1=普通模式
   }
 
   // 设置请求附加信息
-  setMeta(meta: RequestMeta): void {
+  setMeta (meta: RequestMeta): void {
     this.meta = meta;
   }
 
-  // 根据模型判断 API 类型
-  private getTypeByModel(model: string): number {
-    if (MODEL_LIST.includes(model as typeof MODEL_LIST[number])) return 1;
-    if (BACKUP_MODEL_LIST.includes(model as typeof BACKUP_MODEL_LIST[number])) return 2;
-    return 1;
+  // 设置自动切换模式
+  setAutoSwitch (enabled: boolean): void {
+    this.autoSwitch = enabled;
+    this.apiType = enabled ? 100 : 1;
   }
 
   // 带工具调用的对话
-  async chatWithTools(messages: AIMessage[], tools: Tool[]): Promise<AIResponse> {
+  async chatWithTools (messages: AIMessage[], tools: Tool[]): Promise<AIResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
 
@@ -90,22 +90,26 @@ export class AIClient {
   }
 
   // 简单对话
-  async chatSimple(messages: AIMessage[]): Promise<string> {
+  async chatSimple (messages: AIMessage[]): Promise<string> {
     const res = await this.chatWithTools(messages, []);
     return res.choices?.[0]?.message?.content || '';
   }
 
   // 模型管理
-  setModel(model: string): void {
+  setModel (model: string): void {
     this.model = model;
-    this.apiType = this.getTypeByModel(model);
+    // 保持当前的 autoSwitch 设置
   }
 
-  getModel(): string {
+  getModel (): string {
     return this.model;
   }
 
-  getApiType(): number {
+  getApiType (): number {
     return this.apiType;
+  }
+
+  isAutoSwitch (): boolean {
+    return this.autoSwitch;
   }
 }

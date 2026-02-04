@@ -6,7 +6,7 @@ import type { AIMessage, Tool, ToolResult, AIConfig } from '../types';
 import { pluginState } from '../core/state';
 import {
   DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_APIS,
-  OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, MODEL_LIST, BACKUP_MODEL_LIST, generateSystemPrompt,
+  OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, generateSystemPrompt,
 } from '../config';
 import { AIClient } from '../tools/ai-client';
 import { getApiTools, executeApiTool } from '../tools/api-tools';
@@ -22,31 +22,24 @@ import { checkUserPermission, buildPermissionInfo } from '../utils/permission';
 
 // 根据配置获取 AI 配置
 function getAIConfig (): AIConfig {
-  const { apiSource, model, backupModel, customApiUrl, customApiKey, customModel } = pluginState.config;
+  const { apiSource, model, customApiUrl, customApiKey, customModel } = pluginState.config;
 
-  switch (apiSource) {
-    case 'custom':
-      return {
-        base_url: customApiUrl || 'https://api.openai.com/v1/chat/completions',
-        api_key: customApiKey || '',
-        model: customModel || 'gpt-4o',
-        timeout: DEFAULT_AI_CONFIG.timeout,
-      };
-    case 'backup':
-      return {
-        base_url: DEFAULT_AI_CONFIG.base_url,
-        api_key: DEFAULT_AI_CONFIG.api_key,
-        model: backupModel || 'gemini-2.5-flash',
-        timeout: DEFAULT_AI_CONFIG.timeout,
-      };
-    default: // main
-      return {
-        base_url: DEFAULT_AI_CONFIG.base_url,
-        api_key: DEFAULT_AI_CONFIG.api_key,
-        model: model || 'gpt-5',
-        timeout: DEFAULT_AI_CONFIG.timeout,
-      };
+  if (apiSource === 'custom') {
+    return {
+      base_url: customApiUrl || 'https://api.openai.com/v1/chat/completions',
+      api_key: customApiKey || '',
+      model: customModel || 'gpt-4o',
+      timeout: DEFAULT_AI_CONFIG.timeout,
+    };
   }
+
+  // 默认使用主接口
+  return {
+    base_url: DEFAULT_AI_CONFIG.base_url,
+    api_key: DEFAULT_AI_CONFIG.api_key,
+    model: model || 'gpt-5',
+    timeout: DEFAULT_AI_CONFIG.timeout,
+  };
 }
 
 // 获取所有可用工具
@@ -88,19 +81,20 @@ export async function handleAICommand (
     `指令: ${instruction}`,
   ].filter(Boolean).join('\n');
 
-  // 创建 AI 客户端
-  const aiClient = new AIClient(getAIConfig());
-  
+  // 创建 AI 客户端（传入自动切换模式设置）
+  const autoSwitch = pluginState.config.autoSwitchModel !== false;
+  const aiClient = new AIClient(getAIConfig(), autoSwitch);
+
   // 设置请求附加信息（机器人、主人、用户）
   const ownerQQs = pluginState.config.ownerQQs;
   const ownerIds = ownerQQs ? ownerQQs.split(/[,，\s]+/).map((s: string) => s.trim()).filter(Boolean) : [];
   let botId: string | undefined;
   try {
-    const loginInfo = await ctx.actions?.call('get_login_info', {}, ctx.adapterName, ctx.pluginManager.config) as { user_id?: number | string } | undefined;
+    const loginInfo = await ctx.actions?.call('get_login_info', {}, ctx.adapterName, ctx.pluginManager.config) as { user_id?: number | string; } | undefined;
     botId = loginInfo?.user_id ? String(loginInfo.user_id) : undefined;
   } catch { /* ignore */ }
   aiClient.setMeta({ bot_id: botId, owner_ids: ownerIds.length ? ownerIds : undefined, user_id: userId });
-  
+
   const tools = getAllTools();
 
   // 构建消息列表
@@ -117,27 +111,12 @@ export async function handleAICommand (
 
   const allResults: { tool: string; result: ToolResult; }[] = [];
   let hasSentMsg = false;
-  let retryCount = 0;
-  const maxRetries = 3;
-  const allModels = [...MODEL_LIST, ...BACKUP_MODEL_LIST];
 
   // 多轮对话循环
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    let response = await aiClient.chatWithTools(messages, tools);
+    const response = await aiClient.chatWithTools(messages, tools);
 
-    // 模型失效时自动切换
-    while (response.error && retryCount < maxRetries) {
-      const isRetryable = /超时|HTTP|429|500|502|503|model|invalid/i.test(response.error);
-      if (!isRetryable) break;
-
-      const currentIdx = allModels.indexOf(aiClient.getModel());
-      const nextModel = allModels[(currentIdx + 1) % allModels.length];
-      pluginState.debug(`[AI] 模型 ${aiClient.getModel()} 失效，临时切换到 ${nextModel}`);
-      aiClient.setModel(nextModel);
-      response = await aiClient.chatWithTools(messages, tools);
-      retryCount++;
-    }
-
+    // 自动切换模式由服务器端处理，客户端只处理最终结果
     if (response.error) {
       const detail = response.detail ? `\n详情: ${response.detail.slice(0, 200)}` : '';
       await sendReply(event, `❌ 请求失败: ${response.error}${detail}`, ctx);
