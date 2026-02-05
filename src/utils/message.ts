@@ -111,8 +111,11 @@ export function processMessageContent (raw: string): { content: string; replyMes
   return { content: raw.replace(/\[CQ:reply,id=-?\d+\]/g, '').replace(/\[CQ:at,qq=\d+\]/g, '').trim(), replyMessageId: match?.[1] };
 }
 
-// 提取@用户
-export function extractAtUsers (message: unknown): string[] {
+// 提取@用户（排除机器人自身和@全体成员）
+export function extractAtUsers (message: unknown, selfId?: string): string[] {
   if (!Array.isArray(message)) return [];
-  return message.filter((s: { type?: string; data?: { qq?: string | number; }; }) => s.type === 'at' && s.data?.qq && s.data.qq !== 'all').map((s: { data?: { qq?: string | number; }; }) => String(s.data?.qq));
+  return message
+    .filter((s: { type?: string; data?: { qq?: string | number; }; }) =>
+      s.type === 'at' && s.data?.qq && s.data.qq !== 'all' && (!selfId || String(s.data.qq) !== selfId))
+    .map((s: { data?: { qq?: string | number; }; }) => String(s.data?.qq));
 }

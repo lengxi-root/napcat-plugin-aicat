@@ -30,17 +30,19 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   });
   pluginState.log('info', 'AI Cat 插件正在初始化喵～');
 
-  // 尝试从 API 获取最新模型列表
-  fetchModelList().then(models => {
+  // 先获取最新模型列表（等待完成后再生成配置UI）
+  try {
+    const models = await fetchModelList();
     pluginState.log('info', `已获取 ${models.length} 个可用模型`);
-  }).catch(() => { /* ignore */ });
+  } catch { /* 获取失败使用默认列表 */ }
 
-  // 配置UI
+  // 配置UI（使用更新后的模型列表）
   plugin_config_ui = ctx.NapCatConfig.combine(
     ctx.NapCatConfig.html('<div style="padding:10px;background:#f5f5f5;border-radius:8px;margin-bottom:10px"><b>🐱 AI Cat 智能猫娘助手</b><br/><span style="color:#666;font-size:13px">使用 <code>xy帮助</code> 查看指令 | 交流群：631348711</span></div>'),
     // 基础设置
     ctx.NapCatConfig.html('<b>📌 基础设置</b>'),
     ctx.NapCatConfig.text('prefix', '指令前缀', 'xy', '触发AI对话的前缀'),
+    ctx.NapCatConfig.boolean('allowAtTrigger', '艾特触发', false, '允许@机器人时无需前缀直接触发'),
     ctx.NapCatConfig.text('botName', '机器人名称', '汐雨', '机器人显示名称'),
     ctx.NapCatConfig.text('personality', 'AI个性', '可爱猫娘助手，说话带"喵"等语气词，活泼俏皮会撒娇', 'AI的性格描述，会影响回复风格'),
     ctx.NapCatConfig.text('ownerQQs', '主人QQ', '', '多个用逗号分隔'),
@@ -181,10 +183,26 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   if (pluginState.config.enableReply === false) return;
 
   const prefix = pluginState.config.prefix || 'xy';
-  const match = content.match(new RegExp(`^${prefix}\\s*(.*)`, 'is'));
-  if (!match) return;
+  const selfId = String(event.self_id || '');
+  
+  // 检测是否艾特了机器人（仅在开启 allowAtTrigger 时生效）
+  let instruction = '';
+  if (pluginState.config.allowAtTrigger && selfId) {
+    const atBotPattern = new RegExp(`\\[CQ:at,qq=${selfId}\\]`, 'g');
+    if (atBotPattern.test(raw)) {
+      // 去掉机器人的@，保留其他用户的@
+      instruction = raw.replace(atBotPattern, '').replace(/\[CQ:reply,id=-?\d+\]/g, '').trim();
+    }
+  }
+  
+  // 如果没有通过艾特触发，则尝试前缀匹配
+  if (!instruction) {
+    const match = content.match(new RegExp(`^${prefix}\\s*(.*)`, 'is'));
+    if (!match) return;
+    instruction = match[1].trim();
+  }
 
-  await handleCommand(event, match[1].trim(), ctx, replyMessageId);
+  await handleCommand(event, instruction, ctx, replyMessageId);
 };
 
 // 事件处理

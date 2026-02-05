@@ -7,6 +7,7 @@ import { pluginState } from '../core/state';
 import {
   DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_APIS,
   OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, generateSystemPrompt,
+  getValidModel, fetchModelList,
 } from '../config';
 import { AIClient } from '../tools/ai-client';
 import { getApiTools, executeApiTool } from '../tools/api-tools';
@@ -20,25 +21,33 @@ import { isOwner } from '../managers/owner-manager';
 import { sendReply, sendLongMessage, extractAtUsers } from '../utils/message';
 import { checkUserPermission, buildPermissionInfo } from '../utils/permission';
 
-// 根据配置获取 AI 配置
-function getAIConfig (): AIConfig {
+// 根据配置获取 AI 配置（返回配置和是否强制自动切换）
+function getAIConfig (): { config: AIConfig; forceAutoSwitch: boolean; } {
   const { apiSource, model, customApiUrl, customApiKey, customModel } = pluginState.config;
 
   if (apiSource === 'custom') {
     return {
-      base_url: customApiUrl || 'https://api.openai.com/v1/chat/completions',
-      api_key: customApiKey || '',
-      model: customModel || 'gpt-4o',
-      timeout: DEFAULT_AI_CONFIG.timeout,
+      config: {
+        base_url: customApiUrl || 'https://api.openai.com/v1/chat/completions',
+        api_key: customApiKey || '',
+        model: customModel || 'gpt-4o',
+        timeout: DEFAULT_AI_CONFIG.timeout,
+      },
+      forceAutoSwitch: false,  // 自定义接口不检查模型可用性
     };
   }
 
-  // 默认使用主接口
+  // 检查模型是否可用，不可用则强制自动切换
+  const { model: validModel, forceAutoSwitch } = getValidModel(model || 'gpt-5');
+  
   return {
-    base_url: DEFAULT_AI_CONFIG.base_url,
-    api_key: DEFAULT_AI_CONFIG.api_key,
-    model: model || 'gpt-5',
-    timeout: DEFAULT_AI_CONFIG.timeout,
+    config: {
+      base_url: DEFAULT_AI_CONFIG.base_url,
+      api_key: DEFAULT_AI_CONFIG.api_key,
+      model: validModel,
+      timeout: DEFAULT_AI_CONFIG.timeout,
+    },
+    forceAutoSwitch,
   };
 }
 
@@ -70,7 +79,8 @@ export async function handleAICommand (
   const groupId = event.group_id ? String(event.group_id) : undefined;
   const userPerm = await checkUserPermission(userId, groupId, ctx);
   const userIsOwner = isOwner(userId);
-  const atUsers = extractAtUsers(event.message);
+  const selfId = event.self_id ? String(event.self_id) : undefined;
+  const atUsers = extractAtUsers(event.message, selfId);
   const sender = event.sender as { nickname?: string; } | undefined;
 
   // 构建上下文信息
@@ -82,8 +92,10 @@ export async function handleAICommand (
   ].filter(Boolean).join('\n');
 
   // 创建 AI 客户端（传入自动切换模式设置）
-  const autoSwitch = pluginState.config.autoSwitchModel !== false;
-  const aiClient = new AIClient(getAIConfig(), autoSwitch);
+  // 如果用户选择的模型已不可用，则强制启用自动切换
+  const { config: aiConfig, forceAutoSwitch } = getAIConfig();
+  const autoSwitch = forceAutoSwitch || pluginState.config.autoSwitchModel !== false;
+  const aiClient = new AIClient(aiConfig, autoSwitch);
 
   // 设置请求附加信息（机器人、主人、用户）
   const ownerQQs = pluginState.config.ownerQQs;

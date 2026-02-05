@@ -19,6 +19,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   customModel: 'gpt-4o',
   allowPublicPacket: true,
   autoSwitchModel: true,
+  allowAtTrigger: false,  // 默认关闭，需手动开启
 };
 
 // 模型列表（可从 API 动态更新）
@@ -56,6 +57,20 @@ export async function fetchModelList (): Promise<string[]> {
 // 获取模型选项列表
 export function getModelOptions (): { label: string; value: string; }[] {
   return MODEL_LIST.map(m => ({ label: m, value: m }));
+}
+
+// 检查模型是否可用
+export function isModelAvailable (model: string): boolean {
+  return MODEL_LIST.includes(model);
+}
+
+// 获取有效模型（如果不可用则返回默认模型）
+export function getValidModel (model: string): { model: string; forceAutoSwitch: boolean; } {
+  if (isModelAvailable(model)) {
+    return { model, forceAutoSwitch: false };
+  }
+  // 模型不可用，返回默认模型并强制自动切换
+  return { model: MODEL_LIST[0] || 'gpt-5', forceAutoSwitch: true };
 }
 
 // 上下文配置
