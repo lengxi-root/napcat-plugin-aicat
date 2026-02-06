@@ -1,10 +1,11 @@
-// NapCat AI Cat 插件 @author 冷曦 @version 1.0.0
+// NapCat AI Cat 插件 @author 冷曦
 import type { PluginModule, NapCatPluginContext, PluginConfigSchema } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import fs from 'fs';
 import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { PluginConfig } from './types';
-import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, fetchModelList, getModelOptions } from './config';
+import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, PLUGIN_VERSION, setPluginVersion, fetchModelList, getModelOptions } from './config';
 import { pluginState } from './core/state';
 import { handleCommand } from './handlers/command-handler';
 import { handlePacketCommands, handlePublicPacketCommands } from './handlers/packet-handler';
@@ -30,6 +31,13 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   });
   pluginState.log('info', 'AI Cat 插件正在初始化喵～');
 
+  // 从同目录 package.json 动态读取版本号
+  try {
+    const pluginDir = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(fs.readFileSync(path.join(pluginDir, 'package.json'), 'utf-8'));
+    if (pkg.version) setPluginVersion(pkg.version);
+  } catch { /* ignore */ }
+
   // 先获取最新模型列表（等待完成后再生成配置UI）
   try {
     const models = await fetchModelList();
@@ -38,7 +46,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
 
   // 配置UI（使用更新后的模型列表）
   plugin_config_ui = ctx.NapCatConfig.combine(
-    ctx.NapCatConfig.html('<div style="padding:10px;background:#f5f5f5;border-radius:8px;margin-bottom:10px"><b>🐱 AI Cat 智能猫娘助手</b><br/><span style="color:#666;font-size:13px">使用 <code>xy帮助</code> 查看指令 | 交流群：631348711</span></div>'),
+    ctx.NapCatConfig.html(`<div style="padding:10px;background:#f5f5f5;border-radius:8px;margin-bottom:10px"><b>🐱 AI Cat 智能猫娘助手 v${PLUGIN_VERSION}</b><br/><span style="color:#666;font-size:13px">使用 <code>xy帮助</code> 查看指令 | 交流群：631348711</span></div>`),
     // 基础设置
     ctx.NapCatConfig.html('<b>📌 基础设置</b>'),
     ctx.NapCatConfig.text('prefix', '指令前缀', 'xy', '触发AI对话的前缀'),

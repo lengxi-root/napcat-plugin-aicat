@@ -1,6 +1,10 @@
 // AI Cat 插件配置
 import type { AIConfig, PluginConfig } from './types';
 
+// 插件版本号（plugin_init 时从同目录 package.json 动态读取）
+export let PLUGIN_VERSION = '0.0.0';
+export function setPluginVersion (version: string): void { PLUGIN_VERSION = version; }
+
 // 默认插件配置
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   prefix: 'xy',
@@ -143,8 +147,8 @@ export function generateSystemPrompt (botName = '汐雨', personality = ''): str
 【常用接口】
 send_group_msg{group_id,message} send_private_msg{user_id,message} delete_msg{message_id}
 send_group_forward_msg{group_id,messages} get_msg{message_id} get_group_member_info{group_id,user_id}
-set_group_ban{group_id,user_id,duration} set_group_kick{group_id,user_id} set_group_card{group_id,user_id,card}
-send_like{user_id,times} get_group_list{} get_friend_list{}
+get_group_member_list{group_id} set_group_ban{group_id,user_id,duration} set_group_kick{group_id,user_id}
+set_group_card{group_id,user_id,card} send_like{user_id,times} get_group_list{} get_friend_list{}
 
 【消息段(仅API调用时用)】
 文本{"type":"text","data":{"text":""}}/图片{"type":"image","data":{"file":"URL"}}/at{"type":"at","data":{"qq":""}}/回复{"type":"reply","data":{"id":""}}/表情{"type":"face","data":{"id":""}}/语音{"type":"record","data":{"file":""}}/视频{"type":"video","data":{"file":""}}

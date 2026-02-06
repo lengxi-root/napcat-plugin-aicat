@@ -2,7 +2,7 @@
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import { pluginState } from '../core/state';
-import { MODEL_LIST } from '../config';
+import { MODEL_LIST, PLUGIN_VERSION } from '../config';
 import { contextManager } from '../managers/context-manager';
 import { isOwner, startOwnerVerification, verifyOwnerCode, removeOwner, listOwners } from '../managers/owner-manager';
 import { userWatcherManager } from '../managers/user-watcher';
@@ -17,7 +17,7 @@ async function handleHelp(event: OB11Message, userId: string, ctx: NapCatPluginC
   const currentModel = pluginState.config.model || 'gpt-5';
 
   const sections: { title: string; content: string }[] = [
-    { title: `🐱 ${name}猫娘助手 v1.0.0`, content: '欢迎使用喵～' },
+    { title: `🐱 ${name}猫娘助手 v${PLUGIN_VERSION}`, content: '欢迎使用喵～' },
     {
       title: '📌 基础指令',
       content: [
