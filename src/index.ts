@@ -114,7 +114,12 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
       return await executeApiTool(pluginState.actions, pluginState.adapterName, pluginState.networkConfig, { action, params });
     } catch (e) { return { success: false, error: String(e) }; }
   });
-
+  
+  // 初始化延迟加载的组件
+  commandManager.init();
+  userWatcherManager.init();
+  taskManager.init();
+  
   taskManager.startScheduler();
   pluginState.log('info', 'AI Cat 插件初始化完成喵～');
 };

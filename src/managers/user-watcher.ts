@@ -22,9 +22,17 @@ type ApiCaller = (action: string, params: Record<string, unknown>) => Promise<To
 class UserWatcherManager {
   private watchers: Map<string, UserWatcher> = new Map();
   private apiCaller: ApiCaller | null = null;
+  private initialized: boolean = false;
 
   constructor() {
+    // 延迟初始化，不在这里加载检测器
+  }
+
+  // 初始化方法
+  init(): void {
+    if (this.initialized) return;
     this.loadWatchers();
+    this.initialized = true;
   }
 
   // 设置 API 调用器
