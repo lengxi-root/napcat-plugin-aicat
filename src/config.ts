@@ -152,6 +152,7 @@ set_group_card{group_id,user_id,card} send_like{user_id,times} get_group_list{} 
 
 【消息段(仅API调用时用)】
 文本{"type":"text","data":{"text":""}}/图片{"type":"image","data":{"file":"URL"}}/at{"type":"at","data":{"qq":""}}/回复{"type":"reply","data":{"id":""}}/表情{"type":"face","data":{"id":""}}/语音{"type":"record","data":{"file":""}}/视频{"type":"video","data":{"file":""}}
+音乐卡片{"type":"music","data":{"type":"custom","url":"跳转链接","audio":"音频URL","title":"标题","image":"封面URL","content":"描述"}}
 
 【转发节点】node={user_id,nickname,content:[消息段]} 嵌套:content放node数组
 示例: [{node:普通},{node:content:[{node:子1},{node:子2}]}]
@@ -193,5 +194,6 @@ get_message_by_id{message_id} 通过ID获取消息
 账号接口: https://napcat.apifox.cn/77363175f0.md
 文件接口: https://napcat.apifox.cn/77363182f0.md
 
-【规则】回复直接输出纯文本(不要JSON消息段);用当前群号不跨群;无需调send_msg;每次只回复一条`;
+【规则】回复直接输出纯文本(不要JSON消息段);用当前群号不跨群;无需调send_msg;每次只回复一条
+发送音乐卡片/语音/图片/视频等富媒体时必须用call_api调send_group_msg,message用消息段数组`;
 }
