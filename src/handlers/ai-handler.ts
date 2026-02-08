@@ -211,7 +211,15 @@ async function executeToolWithPermission (
   return executeTool(name, args, ctx, groupId, isOwnerUser);
 }
 
-// 执行工具
+// 工具分组路由表（按前缀匹配，减少重复定义）
+const TOOL_ROUTES: [string[], (name: string, args: Record<string, unknown>) => Promise<ToolResult>][] = [
+  [['add_custom_command', 'remove_custom_command', 'list_custom_commands', 'toggle_custom_command'], executeCustomCommandTool],
+  [['add_scheduled_task', 'remove_scheduled_task', 'list_scheduled_tasks', 'toggle_scheduled_task', 'run_scheduled_task_now'], executeScheduledTaskTool],
+  [['add_user_watcher', 'remove_user_watcher', 'list_user_watchers', 'toggle_user_watcher'], executeUserWatcherTool],
+  [['web_search', 'fetch_url'], executeWebTool],
+];
+
+// 执行工具（基于路由表分发）
 async function executeTool (
   name: string,
   args: Record<string, unknown>,
@@ -219,40 +227,21 @@ async function executeTool (
   currentGroupId?: string,
   isOwnerUser?: boolean
 ): Promise<ToolResult> {
-  // 工具分类映射
-  const toolHandlers: Record<string, () => Promise<ToolResult>> = {
-    // 自定义命令工具
-    add_custom_command: () => executeCustomCommandTool(name, args),
-    remove_custom_command: () => executeCustomCommandTool(name, args),
-    list_custom_commands: () => executeCustomCommandTool(name, args),
-    toggle_custom_command: () => executeCustomCommandTool(name, args),
-    // 定时任务工具
-    add_scheduled_task: () => executeScheduledTaskTool(name, args),
-    remove_scheduled_task: () => executeScheduledTaskTool(name, args),
-    list_scheduled_tasks: () => executeScheduledTaskTool(name, args),
-    toggle_scheduled_task: () => executeScheduledTaskTool(name, args),
-    run_scheduled_task_now: () => executeScheduledTaskTool(name, args),
-    // 用户检测器工具
-    add_user_watcher: () => executeUserWatcherTool(name, args),
-    remove_user_watcher: () => executeUserWatcherTool(name, args),
-    list_user_watchers: () => executeUserWatcherTool(name, args),
-    toggle_user_watcher: () => executeUserWatcherTool(name, args),
-    // 网络工具
-    web_search: () => executeWebTool(name, args),
-    fetch_url: () => executeWebTool(name, args),
-    // 消息查询工具
-    query_history_messages: () => executeMessageToolWithScope(name, args, currentGroupId, isOwnerUser),
-    search_messages: () => executeMessageToolWithScope(name, args, currentGroupId, isOwnerUser),
-    get_message_stats: () => executeMessageToolWithScope(name, args, currentGroupId, isOwnerUser),
-    get_message_by_id: () => executeMessageToolWithScope(name, args, currentGroupId, isOwnerUser),
-    // API 调用
-    call_api: () => ctx.actions
+  // 消息查询工具（带权限范围控制）
+  if (['query_history_messages', 'search_messages', 'get_message_stats', 'get_message_by_id'].includes(name)) {
+    return executeMessageToolWithScope(name, args, currentGroupId, isOwnerUser);
+  }
+  // API 调用
+  if (name === 'call_api') {
+    return ctx.actions
       ? executeApiTool(ctx.actions, ctx.adapterName, ctx.pluginManager.config as NetworkAdapterConfig, args)
-      : Promise.resolve({ success: false, error: 'actions未初始化' }),
-  };
-
-  const handler = toolHandlers[name];
-  return handler ? handler() : { success: false, error: `未知工具: ${name}` };
+      : { success: false, error: 'actions未初始化' };
+  }
+  // 路由表分发
+  for (const [names, handler] of TOOL_ROUTES) {
+    if (names.includes(name)) return handler(name, args);
+  }
+  return { success: false, error: `未知工具: ${name}` };
 }
 
 // 消息工具权限范围控制

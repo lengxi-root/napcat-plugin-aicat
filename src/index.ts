@@ -8,8 +8,9 @@ import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, PLUGIN_VERSION, setPluginVersion, fetchModelList, getModelOptions } from './config';
 import { pluginState } from './core/state';
 import { handleCommand } from './handlers/command-handler';
+import { contextManager } from './managers/context-manager';
 import { handlePacketCommands, handlePublicPacketCommands } from './handlers/packet-handler';
-import { processMessageContent, sendReply } from './utils/message';
+import { processMessageContent, sendReply, startMessageCleanup, stopMessageCleanup } from './utils/message';
 import { executeApiTool } from './tools/api-tools';
 import { isOwner, initOwnerDataDir, cleanupExpiredVerifications, setNapCatLogger, setConfigOwners } from './managers/owner-manager';
 import { commandManager, initDataDir } from './managers/custom-commands';
@@ -94,9 +95,11 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   initOwnerDataDir(dataPath);
   await initMessageLogger(dataPath);
 
-  // 启动定时任务
+  // 启动定时清理
   pluginState.setVerificationCleanupInterval(setInterval(() => cleanupExpiredVerifications(), 60000));
   setInterval(() => cleanupOldMessages(7), 24 * 60 * 60 * 1000);
+  startMessageCleanup();
+  contextManager.startCleanup();
 
   // 配置消息发送器
   taskManager.setMessageSender(async (type, id, content) => {
@@ -143,6 +146,8 @@ const plugin_cleanup: PluginModule['plugin_cleanup'] = async () => {
   pluginState.log('info', 'AI Cat 插件正在卸载喵～');
   taskManager.stopScheduler();
   pluginState.clearVerificationCleanupInterval();
+  stopMessageCleanup();
+  contextManager.stopCleanup();
   closeMessageLogger();
 };
 

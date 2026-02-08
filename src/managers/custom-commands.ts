@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { CustomCommand, Tool, ToolResult } from '../types';
 
 let DATA_DIR = '';
@@ -42,14 +42,8 @@ class CustomCommandManager {
 
   private saveCommands (): void {
     if (!COMMANDS_FILE) return;
-
     try {
-      const dir = dirname(COMMANDS_FILE);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      const data = Object.fromEntries(this.commands);
-      writeFileSync(COMMANDS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      writeFileSync(COMMANDS_FILE, JSON.stringify(Object.fromEntries(this.commands), null, 2), 'utf-8');
     } catch (error) {
       console.error('[CustomCommands] 保存失败:', error);
     }

@@ -1,6 +1,6 @@
 // 用户检测器管理器 - 监控特定用户消息并执行操作
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { UserWatcher, Tool, ToolResult } from '../types';
 
 let DATA_DIR = '';
@@ -52,17 +52,10 @@ class UserWatcherManager {
     }
   }
 
-  // 保存检测器
-  private saveWatchers(): void {
+  private saveWatchers (): void {
     if (!WATCHERS_FILE) return;
-    
     try {
-      const dir = dirname(WATCHERS_FILE);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      const data = Object.fromEntries(this.watchers);
-      writeFileSync(WATCHERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      writeFileSync(WATCHERS_FILE, JSON.stringify(Object.fromEntries(this.watchers), null, 2), 'utf-8');
     } catch (error) {
       console.error('[UserWatcher] 保存失败:', error);
     }

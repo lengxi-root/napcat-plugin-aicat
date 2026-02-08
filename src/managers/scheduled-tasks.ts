@@ -1,6 +1,6 @@
 // 定时任务管理器
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { ScheduledTask, Tool, ToolResult } from '../types';
 
 let DATA_DIR = '';
@@ -53,17 +53,10 @@ class ScheduledTaskManager {
     }
   }
 
-  // 保存任务
   private saveTasks (): void {
     if (!TASKS_FILE) return;
-
     try {
-      const dir = dirname(TASKS_FILE);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      const data = Object.fromEntries(this.tasks);
-      writeFileSync(TASKS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      writeFileSync(TASKS_FILE, JSON.stringify(Object.fromEntries(this.tasks), null, 2), 'utf-8');
     } catch (error) {
       console.error('[ScheduledTasks] 保存失败:', error);
     }

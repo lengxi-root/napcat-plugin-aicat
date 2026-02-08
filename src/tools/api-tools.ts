@@ -115,56 +115,40 @@ export async function executeApiTool (
       return { success: true, message: getSuccessMessage(action, params), data: {} };
     }
 
-    return parseApiException(action, errorStr);
+    return parseApiError(action, errorStr);
   }
 }
 
-// 解析 API 返回错误
-function parseApiError (action: string, result: Record<string, unknown>): ToolResult {
-  const retcode = result.retcode as number;
-  const msg = (result.message || result.msg || result.wording || '未知错误') as string;
-  const msgStr = msg.toLowerCase();
+// 统一错误匹配规则
+const ERROR_RULES: [RegExp, string][] = [
+  [/no permission|lack|NOT_GROUP_ADMIN/i, '机器人没有管理员权限，无法执行此操作'],
+  [/owner|群主|cannot ban owner/i, '无法对群主执行此操作'],
+  [/admin|管理|cannot ban admin/i, '无法对管理员执行此操作（权限不足）'],
+  [/not found|uid error|user not found/i, '找不到该用户，可能不在群内'],
+  [/group not found/i, '找不到该群'],
+  [/频繁|rate|风控/i, '操作过于频繁或触发风控，请稍后再试'],
+];
 
-  let friendlyError = `${action} 执行失败`;
+// 统一错误解析（合并 API 返回错误和异常）
+function parseApiError (action: string, msgOrResult: string | Record<string, unknown>): ToolResult {
+  let text: string;
+  let data: Record<string, unknown> | undefined;
 
-  if (msgStr.includes('no permission') || msgStr.includes('lack') || retcode === 102) {
-    friendlyError = '机器人没有管理员权限，无法执行此操作';
-  } else if (msgStr.includes('owner') || msgStr.includes('群主')) {
-    friendlyError = '无法对群主执行此操作';
-  } else if (msgStr.includes('admin') || msgStr.includes('管理')) {
-    friendlyError = '无法对管理员执行此操作（权限不足）';
-  } else if (msgStr.includes('not found') || msgStr.includes('uid') || retcode === 100) {
-    friendlyError = '找不到该用户，可能不在群内';
-  } else if (msgStr.includes('频繁') || msgStr.includes('rate') || msgStr.includes('风控')) {
-    friendlyError = '操作过于频繁或触发风控';
+  if (typeof msgOrResult === 'string') {
+    text = msgOrResult;
   } else {
-    friendlyError = `${action} 失败: ${msg} (code: ${retcode})`;
+    const retcode = msgOrResult.retcode as number | undefined;
+    text = String(msgOrResult.message || msgOrResult.msg || msgOrResult.wording || '');
+    data = msgOrResult;
+    if (retcode === 102) return { success: false, error: '机器人没有管理员权限，无法执行此操作', data };
+    if (retcode === 100) return { success: false, error: '找不到该用户，可能不在群内', data };
   }
 
-  return { success: false, error: friendlyError, data: result };
-}
-
-// 解析 API 异常
-function parseApiException (action: string, errorStr: string): ToolResult {
-  let friendlyError = `${action} 执行失败`;
-
-  if (errorStr.includes('NOT_GROUP_ADMIN') || errorStr.includes('no permission')) {
-    friendlyError = '机器人没有管理员权限，无法执行此操作';
-  } else if (errorStr.includes('cannot ban owner') || errorStr.includes('群主')) {
-    friendlyError = '无法对群主执行此操作';
-  } else if (errorStr.includes('cannot ban admin') || errorStr.includes('管理员')) {
-    friendlyError = '无法对管理员执行此操作（权限不足）';
-  } else if (errorStr.includes('uid error') || errorStr.includes('user not found')) {
-    friendlyError = '找不到该用户，可能不在群内';
-  } else if (errorStr.includes('频繁') || errorStr.includes('rate limit') || errorStr.includes('风控')) {
-    friendlyError = '操作过于频繁或触发风控，请稍后再试';
-  } else if (errorStr.includes('group not found')) {
-    friendlyError = '找不到该群';
-  } else {
-    friendlyError = `${action} 失败: ${errorStr.slice(0, 100)}`;
+  const lower = text.toLowerCase();
+  for (const [pattern, msg] of ERROR_RULES) {
+    if (pattern.test(lower)) return { success: false, error: msg, data };
   }
-
-  return { success: false, error: friendlyError };
+  return { success: false, error: `${action} 失败: ${text.slice(0, 100)}`, data };
 }
 
 // 获取成功消息
