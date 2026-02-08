@@ -84,17 +84,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # push main + 版本号变了 → 自动打 tag + 正式发版 + 索引 PR
-      - name: Auto create version tag
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.check_tag.outputs.exists == 'false'
+      # 每次 push main 都覆盖版本 tag + 正式发版
+      - name: Upsert version tag
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         run: |
           TAG="${{ steps.version.outputs.version }}"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "New tag $TAG created"
+          git tag -f "$TAG"
+          git push origin "$TAG" --force
 
       - name: Collect git log
-        if: steps.check_tag.outputs.exists == 'false' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         id: gitlog
         run: |
           CURRENT_TAG="${{ steps.version.outputs.version }}"
@@ -105,7 +104,7 @@ jobs:
           echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
 
       - name: Generate Release Note
-        if: steps.check_tag.outputs.exists == 'false' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           TAG="${{ steps.gitlog.outputs.current_tag }}"
           COMMITS=$(cat commits.txt)
@@ -114,17 +113,20 @@ jobs:
           echo "### 更新内容" >> CHANGELOG.md
           echo "$COMMITS" >> CHANGELOG.md
 
-      - name: Create Version Release
-        if: steps.check_tag.outputs.exists == 'false' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      - name: Upsert version release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
-          gh release create "${{ steps.version.outputs.version }}" napcat-plugin-aicat.zip \
-            --title "Release ${{ steps.version.outputs.version }}" \
+          TAG="${{ steps.version.outputs.version }}"
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" napcat-plugin-aicat.zip \
+            --title "Release $TAG" \
             --notes-file CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # 仅版本号变化时才触发索引 PR
       - name: Trigger index update
-        if: steps.check_tag.outputs.exists == 'false' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: steps.check_tag.outputs.exists == 'false' || github.event_name == 'workflow_dispatch'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
