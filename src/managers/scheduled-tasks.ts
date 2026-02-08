@@ -23,9 +23,17 @@ class ScheduledTaskManager {
   private tasks: Map<string, ScheduledTask> = new Map();
   private messageSender: MessageSender | null = null;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private initialized: boolean = false;
 
   constructor () {
+    // 延迟初始化，不在这里加载任务
+  }
+
+  // 初始化方法
+  init (): void {
+    if (this.initialized) return;
     this.loadTasks();
+    this.initialized = true;
   }
 
   // 设置消息发送器
