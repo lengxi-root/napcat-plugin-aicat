@@ -17,6 +17,7 @@ export interface PluginConfig {
   allowPublicPacket: boolean;
   autoSwitchModel: boolean;  // 自动切换可用模型
   allowAtTrigger: boolean;   // 允许@机器人触发（无需前缀）
+  disabledGroups: string[];  // 禁用AI对话的群列表
   [key: string]: unknown;
 }
 

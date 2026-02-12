@@ -82,6 +82,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   if (fs.existsSync(ctx.configPath)) {
     pluginState.config = { ...DEFAULT_PLUGIN_CONFIG, ...JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8')) };
   }
+  pluginState.configPath = ctx.configPath || '';
 
   // 初始化配置相关
   if (pluginState.config.ownerQQs) setConfigOwners(pluginState.config.ownerQQs);
@@ -117,12 +118,12 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
       return await executeApiTool(pluginState.actions, pluginState.adapterName, pluginState.networkConfig, { action, params });
     } catch (e) { return { success: false, error: String(e) }; }
   });
-  
+
   // 初始化延迟加载的组件
   commandManager.init();
   userWatcherManager.init();
   taskManager.init();
-  
+
   taskManager.startScheduler();
   pluginState.log('info', 'AI Cat 插件初始化完成喵～');
 };
@@ -200,9 +201,20 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   const { content, replyMessageId } = processMessageContent(raw);
   if (pluginState.config.enableReply === false) return;
 
+  // 检查群AI开关（禁用时仍允许开关命令和状态查询）
   const prefix = pluginState.config.prefix || 'xy';
   const selfId = String(event.self_id || '');
-  
+
+  if (groupId && pluginState.isGroupAIDisabled(groupId)) {
+    // 仅放行开关相关命令
+    const prefixMatch = content.match(new RegExp(`^${prefix}\\s*(.*)`, 'is'));
+    const cmdText = prefixMatch?.[1]?.trim() || '';
+    if (['开启AI', '关闭AI', 'AI状态', '帮助'].includes(cmdText)) {
+      await handleCommand(event, cmdText, ctx, replyMessageId);
+    }
+    return;
+  }
+
   // 检测是否艾特了机器人（仅在开启 allowAtTrigger 时生效）
   let instruction = '';
   if (pluginState.config.allowAtTrigger && selfId) {
@@ -212,7 +224,7 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
       instruction = raw.replace(atBotPattern, '').replace(/\[CQ:reply,id=-?\d+\]/g, '').trim();
     }
   }
-  
+
   // 如果没有通过艾特触发，则尝试前缀匹配
   if (!instruction) {
     const match = content.match(new RegExp(`^${prefix}\\s*(.*)`, 'is'));

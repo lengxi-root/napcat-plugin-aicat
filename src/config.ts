@@ -24,6 +24,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   allowPublicPacket: true,
   autoSwitchModel: true,
   allowAtTrigger: false,  // 默认关闭，需手动开启
+  disabledGroups: [],     // 禁用AI对话的群列表
 };
 
 // 模型列表（可从 API 动态更新）

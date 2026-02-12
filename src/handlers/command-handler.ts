@@ -10,13 +10,13 @@ import { sendReply, sendForwardMsg } from '../utils/message';
 import { handleAICommand } from './ai-handler';
 
 // 帮助信息
-async function handleHelp(event: OB11Message, userId: string, ctx: NapCatPluginContext): Promise<void> {
+async function handleHelp (event: OB11Message, userId: string, ctx: NapCatPluginContext): Promise<void> {
   const isMaster = isOwner(userId);
   const prefix = pluginState.config.prefix || 'xy';
   const name = pluginState.config.botName || '汐雨';
   const currentModel = pluginState.config.model || 'gpt-5';
 
-  const sections: { title: string; content: string }[] = [
+  const sections: { title: string; content: string; }[] = [
     { title: `🐱 ${name}猫娘助手 v${PLUGIN_VERSION}`, content: '欢迎使用喵～' },
     {
       title: '📌 基础指令',
@@ -26,6 +26,7 @@ async function handleHelp(event: OB11Message, userId: string, ctx: NapCatPluginC
         `${prefix} 上下文 - 对话状态`,
         `${prefix} 清除上下文 - 清除历史`,
         `${prefix} 检测器列表 - 查看检测器`,
+        `${prefix} AI状态 - 查看本群AI开关`,
       ].join('\n'),
     },
     {
@@ -42,6 +43,8 @@ async function handleHelp(event: OB11Message, userId: string, ctx: NapCatPluginC
         `${prefix} 移除主人 <QQ号> - 移除主人`,
         `${prefix} 模型列表 - 查看AI模型`,
         `${prefix} 切换模型 <数字> - 切换模型`,
+        `${prefix} 开启AI - 开启本群AI对话`,
+        `${prefix} 关闭AI - 关闭本群AI对话`,
       ].join('\n'),
     });
     sections.push({
@@ -56,7 +59,7 @@ async function handleHelp(event: OB11Message, userId: string, ctx: NapCatPluginC
 }
 
 // 模型列表
-async function handleListModels(event: OB11Message, ctx: NapCatPluginContext): Promise<void> {
+async function handleListModels (event: OB11Message, ctx: NapCatPluginContext): Promise<void> {
   const currentModel = pluginState.config.model || 'gpt-5';
   const lines = ['🐱 可用模型列表喵～\n'];
   MODEL_LIST.forEach((m, i) => lines.push(`${i + 1}. ${m}${m === currentModel ? ' ← 当前' : ''}`));
@@ -65,7 +68,7 @@ async function handleListModels(event: OB11Message, ctx: NapCatPluginContext): P
 }
 
 // 切换模型
-async function handleSwitchModel(event: OB11Message, idx: string | undefined, ctx: NapCatPluginContext): Promise<void> {
+async function handleSwitchModel (event: OB11Message, idx: string | undefined, ctx: NapCatPluginContext): Promise<void> {
   if (!idx) {
     await handleListModels(event, ctx);
     return;
@@ -80,7 +83,7 @@ async function handleSwitchModel(event: OB11Message, idx: string | undefined, ct
 }
 
 // 主命令入口
-export async function handleCommand(
+export async function handleCommand (
   event: OB11Message,
   cmd: string,
   ctx: NapCatPluginContext,
@@ -124,7 +127,7 @@ export async function handleCommand(
 
   if (cmd === '检测器列表' && isOwner(userId)) {
     const result = userWatcherManager.listWatchers();
-    const watchers = (result.data as { id: string; target_user: string; action: string; enabled: boolean; trigger_count: number }[]) || [];
+    const watchers = (result.data as { id: string; target_user: string; action: string; enabled: boolean; trigger_count: number; }[]) || [];
     if (!watchers.length) {
       await sendReply(event, '📋 暂无用户检测器喵～', ctx);
     } else {
@@ -160,6 +163,28 @@ export async function handleCommand(
   const removeMatch = cmd.match(/^移除主人\s+(\d+)$/);
   if (removeMatch && isOwner(userId)) {
     await sendReply(event, removeOwner(userId, removeMatch[1]).message, ctx);
+    return true;
+  }
+
+  // 群AI开关（主人命令，仅群聊可用）
+  if (cmd === '开启AI' && isOwner(userId)) {
+    if (!groupId) { await sendReply(event, '❌ 该指令仅在群聊中可用喵～', ctx); return true; }
+    pluginState.setGroupAI(groupId, true);
+    await sendReply(event, `✅ 本群(${groupId})AI对话已开启喵～`, ctx);
+    return true;
+  }
+
+  if (cmd === '关闭AI' && isOwner(userId)) {
+    if (!groupId) { await sendReply(event, '❌ 该指令仅在群聊中可用喵～', ctx); return true; }
+    pluginState.setGroupAI(groupId, false);
+    await sendReply(event, `✅ 本群(${groupId})AI对话已关闭喵～`, ctx);
+    return true;
+  }
+
+  if (cmd === 'AI状态') {
+    if (!groupId) { await sendReply(event, '📝 私聊AI对话始终开启喵～', ctx); return true; }
+    const disabled = pluginState.isGroupAIDisabled(groupId);
+    await sendReply(event, `📝 本群AI对话状态: ${disabled ? '❌ 已关闭' : '✅ 已开启'}`, ctx);
     return true;
   }
 
