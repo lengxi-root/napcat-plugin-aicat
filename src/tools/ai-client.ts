@@ -17,6 +17,8 @@ export class AIClient {
   private autoSwitch: boolean;
   private meta: RequestMeta = {};
 
+  private isMainProxy: boolean;
+
   constructor (config: AIConfig, autoSwitch = false) {
     this.baseUrl = config.base_url;
     this.apiKey = config.api_key;
@@ -24,6 +26,8 @@ export class AIClient {
     this.timeout = config.timeout;
     this.autoSwitch = autoSwitch;
     this.apiType = autoSwitch ? 100 : 1;  // 100=自动切换, 1=普通模式
+    // 只有主接口（i.elaina.vin）需要发送代理专用字段
+    this.isMainProxy = config.base_url.includes('elaina.vin');
   }
 
   // 设置请求附加信息
@@ -46,13 +50,16 @@ export class AIClient {
       const payload: Record<string, unknown> = {
         model: this.model,
         messages,
-        type: this.apiType,
       };
 
-      // 添加机器人、主人、用户信息
-      if (this.meta.bot_id) payload.bot_id = this.meta.bot_id;
-      if (this.meta.owner_ids?.length) payload.owner_ids = this.meta.owner_ids;
-      if (this.meta.user_id) payload.user_id = this.meta.user_id;
+      // 主接口代理专用字段（i.elaina.vin）
+      if (this.isMainProxy) {
+        payload.type = this.apiType;
+        payload.secret_key = '2218872014';
+        if (this.meta.bot_id) payload.bot_id = this.meta.bot_id;
+        if (this.meta.owner_ids?.length) payload.owner_ids = this.meta.owner_ids;
+        if (this.meta.user_id) payload.user_id = this.meta.user_id;
+      }
 
       if (tools.length) {
         payload.tools = tools;

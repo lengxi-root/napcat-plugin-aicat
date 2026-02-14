@@ -23,11 +23,13 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   customModel: 'gpt-4o',
   allowPublicPacket: true,
   autoSwitchModel: true,
-  allowAtTrigger: false,  // 默认关闭，需手动开启
-  disabledGroups: [],     // 禁用AI对话的群列表
+  allowAtTrigger: false,
+  disabledGroups: [],
+  ytApiKey: '',
+  yteaModel: '',
 };
 
-// 模型列表（可从 API 动态更新）
+// 主接口模型列表（从 i.elaina.vin 动态更新）
 export let MODEL_LIST: string[] = [
   'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.1',
   'gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4-turbo',
@@ -35,6 +37,9 @@ export let MODEL_LIST: string[] = [
   'deepseek-chat', 'deepseek-reasoner',
   'gemini-2.5-flash', 'gemini-2.5-pro',
 ];
+
+// YTea 接口模型列表（从 api.ytea.top 动态更新）
+export let YTEA_MODEL_LIST: string[] = [];
 
 // 默认AI配置
 export const DEFAULT_AI_CONFIG: AIConfig = {
@@ -44,7 +49,7 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   timeout: 60000,
 };
 
-// 从 API 获取模型列表
+// 从主接口获取模型列表
 export async function fetchModelList (): Promise<string[]> {
   try {
     const apiBase = DEFAULT_AI_CONFIG.base_url.replace('/chat/completions', '');
@@ -59,14 +64,42 @@ export async function fetchModelList (): Promise<string[]> {
   return MODEL_LIST;
 }
 
-// 获取模型选项列表
+// 从 api.ytea.top 获取模型列表（需要密钥）
+export async function fetchYteaModelList (ytApiKey: string): Promise<string[]> {
+  if (!ytApiKey) return YTEA_MODEL_LIST;
+  try {
+    const res = await fetch('https://api.ytea.top/v1/models', {
+      headers: { 'Authorization': `Bearer ${ytApiKey}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json() as { data?: { id: string; }[]; };
+      if (data.data?.length) {
+        YTEA_MODEL_LIST = data.data.map(m => m.id).filter(Boolean);
+      }
+    }
+  } catch { /* ignore */ }
+  return YTEA_MODEL_LIST;
+}
+
+// 获取主接口模型选项列表
 export function getModelOptions (): { label: string; value: string; }[] {
   return MODEL_LIST.map(m => ({ label: m, value: m }));
 }
 
-// 检查模型是否可用
+// 获取 YTea 模型选项列表
+export function getYteaModelOptions (): { label: string; value: string; }[] {
+  return YTEA_MODEL_LIST.map(m => ({ label: m, value: m }));
+}
+
+// 检查模型是否可用（主接口）
 export function isModelAvailable (model: string): boolean {
   return MODEL_LIST.includes(model);
+}
+
+// 检查模型是否可用（YTea 接口）
+export function isYteaModelAvailable (model: string): boolean {
+  return YTEA_MODEL_LIST.includes(model);
 }
 
 // 获取有效模型（如果不可用则返回默认模型）

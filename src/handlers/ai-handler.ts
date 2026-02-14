@@ -7,7 +7,7 @@ import { pluginState } from '../core/state';
 import {
   DEFAULT_AI_CONFIG, MAX_ROUNDS, ADMIN_REQUIRED_APIS, OWNER_ONLY_APIS,
   OWNER_ONLY_TOOLS, OWNER_ONLY_CUSTOM_TOOLS, generateSystemPrompt,
-  getValidModel, fetchModelList,
+  getValidModel, YTEA_MODEL_LIST,
 } from '../config';
 import { AIClient } from '../tools/ai-client';
 import { getApiTools, executeApiTool } from '../tools/api-tools';
@@ -23,8 +23,9 @@ import { checkUserPermission, buildPermissionInfo } from '../utils/permission';
 
 // 根据配置获取 AI 配置（返回配置和是否强制自动切换）
 function getAIConfig (): { config: AIConfig; forceAutoSwitch: boolean; } {
-  const { apiSource, model, customApiUrl, customApiKey, customModel } = pluginState.config;
+  const { apiSource, model, customApiUrl, customApiKey, customModel, ytApiKey, yteaModel } = pluginState.config;
 
+  // 模式3: 完全自定义 API
   if (apiSource === 'custom') {
     return {
       config: {
@@ -33,13 +34,27 @@ function getAIConfig (): { config: AIConfig; forceAutoSwitch: boolean; } {
         model: customModel || 'gpt-4o',
         timeout: DEFAULT_AI_CONFIG.timeout,
       },
-      forceAutoSwitch: false,  // 自定义接口不检查模型可用性
+      forceAutoSwitch: false,
     };
   }
 
-  // 检查模型是否可用，不可用则强制自动切换
+  // 模式2: YTea 自购密钥（api.ytea.top），支持自动切换
+  if (apiSource === 'ytea') {
+    const selectedModel = yteaModel || YTEA_MODEL_LIST[0] || 'gpt-4o';
+    const forceAutoSwitch = YTEA_MODEL_LIST.length > 0 && !YTEA_MODEL_LIST.includes(selectedModel);
+    return {
+      config: {
+        base_url: 'https://api.ytea.top/v1/chat/completions',
+        api_key: ytApiKey || '',
+        model: forceAutoSwitch ? (YTEA_MODEL_LIST[0] || selectedModel) : selectedModel,
+        timeout: DEFAULT_AI_CONFIG.timeout,
+      },
+      forceAutoSwitch,
+    };
+  }
+
+  // 模式1: 主接口（i.elaina.vin），免费50次/天，强制自动切换
   const { model: validModel, forceAutoSwitch } = getValidModel(model || 'gpt-5');
-  
   return {
     config: {
       base_url: DEFAULT_AI_CONFIG.base_url,
@@ -47,7 +62,7 @@ function getAIConfig (): { config: AIConfig; forceAutoSwitch: boolean; } {
       model: validModel,
       timeout: DEFAULT_AI_CONFIG.timeout,
     },
-    forceAutoSwitch,
+    forceAutoSwitch: true,  // 主接口强制自动切换
   };
 }
 
@@ -105,6 +120,7 @@ export async function handleAICommand (
     const loginInfo = await ctx.actions?.call('get_login_info', {}, ctx.adapterName, ctx.pluginManager.config) as { user_id?: number | string; } | undefined;
     botId = loginInfo?.user_id ? String(loginInfo.user_id) : undefined;
   } catch { /* ignore */ }
+  // 设置请求附加信息
   aiClient.setMeta({ bot_id: botId, owner_ids: ownerIds.length ? ownerIds : undefined, user_id: userId });
 
   const tools = getAllTools();

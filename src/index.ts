@@ -5,7 +5,7 @@ import fs from 'fs';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { PluginConfig } from './types';
-import { DEFAULT_PLUGIN_CONFIG, MODEL_LIST, PLUGIN_VERSION, setPluginVersion, fetchModelList, getModelOptions } from './config';
+import { DEFAULT_PLUGIN_CONFIG, PLUGIN_VERSION, setPluginVersion, fetchModelList, fetchYteaModelList, getYteaModelOptions } from './config';
 import { pluginState } from './core/state';
 import { handleCommand } from './handlers/command-handler';
 import { contextManager } from './managers/context-manager';
@@ -40,12 +40,31 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   } catch { /* ignore */ }
 
   // 先获取最新模型列表（等待完成后再生成配置UI）
+  // 加载配置（需要先加载才能拿到 ytApiKey）
+  if (fs.existsSync(ctx.configPath)) {
+    pluginState.config = { ...DEFAULT_PLUGIN_CONFIG, ...JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8')) };
+  }
+  pluginState.configPath = ctx.configPath || '';
+
   try {
     const models = await fetchModelList();
-    pluginState.log('info', `已获取 ${models.length} 个可用模型`);
+    pluginState.log('info', `主接口已获取 ${models.length} 个可用模型`);
   } catch { /* 获取失败使用默认列表 */ }
 
+  // 如果配置了 ytApiKey，拉取 ytea 模型列表
+  if (pluginState.config.ytApiKey) {
+    try {
+      const yteaModels = await fetchYteaModelList(pluginState.config.ytApiKey);
+      pluginState.log('info', `YTea接口已获取 ${yteaModels.length} 个可用模型`);
+    } catch { /* ignore */ }
+  }
+
   // 配置UI（使用更新后的模型列表）
+  const yteaOpts = getYteaModelOptions();
+  const yteaModelSelect = yteaOpts.length
+    ? ctx.NapCatConfig.select('yteaModel', 'YTea模型', yteaOpts, yteaOpts[0]?.value || '', '从 api.ytea.top 获取的模型列表')
+    : ctx.NapCatConfig.text('yteaModel', 'YTea模型', '', '填写密钥并重启后自动获取模型列表');
+
   plugin_config_ui = ctx.NapCatConfig.combine(
     ctx.NapCatConfig.html(`<div style="padding:10px;background:#f5f5f5;border-radius:8px;margin-bottom:10px"><b>🐱 AI Cat 智能猫娘助手 v${PLUGIN_VERSION}</b><br/><span style="color:#666;font-size:13px">使用 <code>xy帮助</code> 查看指令 | 交流群：631348711</span></div>`),
     // 基础设置
@@ -59,16 +78,18 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.boolean('sendConfirmMessage', '发送确认消息', true, '收到指令后发送确认提示'),
     ctx.NapCatConfig.text('confirmMessage', '确认消息内容', '汐雨收到喵～', '确认提示的文本内容'),
     // AI 配置
-    ctx.NapCatConfig.html('<b>🤖 AI 配置</b>'),
+    ctx.NapCatConfig.html('<b>🤖 AI 配置</b> <span style="color:#999;font-size:12px">主接口免费50次/天 | 填写YTea密钥可解除限制，前往 <a href="https://api.ytea.top/" target="_blank">api.ytea.top</a> 免费签到和订阅获取</span>'),
     ctx.NapCatConfig.select('apiSource', 'API来源', [
-      { label: '主接口', value: 'main' },
-      { label: '自定义API', value: 'custom' },
-    ], 'main', '选择AI接口来源'),
-    ctx.NapCatConfig.select('model', '模型', getModelOptions(), 'gpt-5', '选择AI模型'),
+      { label: '🆓 主接口（免费50次/天）', value: 'main' },
+      { label: '🔑 YTea接口（自购密钥，无限制）', value: 'ytea' },
+      { label: '🔧 自定义API', value: 'custom' },
+    ], 'main', '主接口：自动切换模型，10轮上下文 | YTea/自定义：可选模型和轮数'),
+    ctx.NapCatConfig.text('ytApiKey', 'YTea密钥', '', '如 sk-xxx，选择「YTea接口」后生效，无每日次数限制'),
+    yteaModelSelect,
     ctx.NapCatConfig.boolean('autoSwitchModel', '自动切换模型', true, '模型失败时自动尝试其他可用模型'),
-    ctx.NapCatConfig.select('maxContextTurns', '上下文轮数', [5, 10, 15, 20].map(n => ({ label: `${n}轮`, value: n })), 10, '保留的对话历史轮数'),
+    ctx.NapCatConfig.select('maxContextTurns', '上下文轮数', [5, 10, 15, 20].map(n => ({ label: `${n}轮`, value: n })), 10, '保留的对话历史轮数（主接口固定10轮）'),
     // 自定义 API
-    ctx.NapCatConfig.html('<b>🔧 自定义API</b> <span style="color:#999;font-size:12px">仅选择自定义API时生效</span>'),
+    ctx.NapCatConfig.html('<b>🔧 自定义API</b> <span style="color:#999;font-size:12px">仅选择「自定义API」时生效</span>'),
     ctx.NapCatConfig.text('customApiUrl', 'API地址', '', '如 https://api.openai.com/v1/chat/completions'),
     ctx.NapCatConfig.text('customApiKey', 'API密钥', '', '如 sk-xxx'),
     ctx.NapCatConfig.text('customModel', '模型名称', 'gpt-4o', '如 gpt-4o'),
@@ -77,12 +98,6 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细调试日志'),
     ctx.NapCatConfig.boolean('allowPublicPacket', '公开取指令', true, '允许所有人使用"取"指令')
   );
-
-  // 加载配置
-  if (fs.existsSync(ctx.configPath)) {
-    pluginState.config = { ...DEFAULT_PLUGIN_CONFIG, ...JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8')) };
-  }
-  pluginState.configPath = ctx.configPath || '';
 
   // 初始化配置相关
   if (pluginState.config.ownerQQs) setConfigOwners(pluginState.config.ownerQQs);

@@ -23,6 +23,7 @@ async function handleHelp (event: OB11Message, userId: string, ctx: NapCatPlugin
       content: [
         `${prefix} <内容> - AI对话`,
         `${prefix} 帮助 - 显示帮助`,
+        `${prefix} 额度 - 查询今日剩余额度`,
         `${prefix} 上下文 - 对话状态`,
         `${prefix} 清除上下文 - 清除历史`,
         `${prefix} 检测器列表 - 查看检测器`,
@@ -36,24 +37,26 @@ async function handleHelp (event: OB11Message, userId: string, ctx: NapCatPlugin
   ];
 
   if (isMaster) {
-    sections.push({
-      title: '🔧 主人管理',
-      content: [
-        `${prefix} 主人列表 - 查看所有主人`,
-        `${prefix} 移除主人 <QQ号> - 移除主人`,
-        `${prefix} 模型列表 - 查看AI模型`,
-        `${prefix} 切换模型 <数字> - 切换模型`,
-        `${prefix} 开启AI - 开启本群AI对话`,
-        `${prefix} 关闭AI - 关闭本群AI对话`,
-      ].join('\n'),
-    });
+    const masterCmds = [
+      `${prefix} 主人列表 - 查看所有主人`,
+      `${prefix} 移除主人 <QQ号> - 移除主人`,
+      `${prefix} 开启AI - 开启本群AI对话`,
+      `${prefix} 关闭AI - 关闭本群AI对话`,
+    ];
+    // 非主接口模式才显示模型管理命令
+    if (pluginState.config.apiSource !== 'main') {
+      masterCmds.push(`${prefix} 模型列表 - 查看AI模型`);
+      masterCmds.push(`${prefix} 切换模型 <数字> - 切换模型`);
+    }
+    sections.push({ title: '🔧 主人管理', content: masterCmds.join('\n') });
     sections.push({
       title: '🔬 Packet调试',
       content: '取 - 获取引用消息详情\napi <action>\\n{params} - 调用OneBot',
     });
   }
 
-  sections.push({ title: '⚙️ 当前状态', content: `前缀: ${prefix}\n模型: ${currentModel}` });
+  const apiLabel = { main: '🆓 主接口', ytea: '🔑 YTea', custom: '🔧 自定义' }[pluginState.config.apiSource] || '主接口';
+  sections.push({ title: '⚙️ 当前状态', content: `前缀: ${prefix}\nAPI: ${apiLabel}\n模型: ${pluginState.config.apiSource === 'main' ? '自动切换' : currentModel}` });
 
   await sendForwardMsg(event, sections, ctx);
 }
@@ -113,14 +116,22 @@ export async function handleCommand (
     return true;
   }
 
-  // 主人命令
+  // 主人命令 - 模型管理（仅非主接口模式可用）
   if (cmd === '模型列表' && isOwner(userId)) {
+    if (pluginState.config.apiSource === 'main') {
+      await sendReply(event, '📝 主接口模式使用自动切换，无需手动选择模型喵～', ctx);
+      return true;
+    }
     await handleListModels(event, ctx);
     return true;
   }
 
   const switchMatch = cmd.match(/^切换模型\s*(\d+)?$/);
   if (switchMatch && isOwner(userId)) {
+    if (pluginState.config.apiSource === 'main') {
+      await sendReply(event, '📝 主接口模式使用自动切换，无需手动选择模型喵～', ctx);
+      return true;
+    }
     await handleSwitchModel(event, switchMatch[1], ctx);
     return true;
   }
@@ -182,9 +193,36 @@ export async function handleCommand (
   }
 
   if (cmd === 'AI状态') {
-    if (!groupId) { await sendReply(event, '📝 私聊AI对话始终开启喵～', ctx); return true; }
+    if (!groupId) { await sendReply(event, '📝 私聊AI对话状态: ✅ 已开启', ctx); return true; }
     const disabled = pluginState.isGroupAIDisabled(groupId);
     await sendReply(event, `📝 本群AI对话状态: ${disabled ? '❌ 已关闭' : '✅ 已开启'}`, ctx);
+    return true;
+  }
+
+  // 查询今日额度
+  if (cmd === '额度' || cmd === '剩余额度') {
+    try {
+      const apiBase = (await import('../config')).DEFAULT_AI_CONFIG.base_url.replace('/chat/completions', '').replace('/v1', '');
+      let botId: string | undefined;
+      try {
+        const loginInfo = await ctx.actions?.call('get_login_info', {}, ctx.adapterName, ctx.pluginManager.config) as { user_id?: number | string; } | undefined;
+        botId = loginInfo?.user_id ? String(loginInfo.user_id) : undefined;
+      } catch { /* ignore */ }
+      if (!botId) { await sendReply(event, '❌ 无法获取机器人信息喵～', ctx); return true; }
+      if (pluginState.config.ytApiKey) {
+        await sendReply(event, '🔑 已配置自定义密钥，无每日次数限制喵～', ctx);
+        return true;
+      }
+      const res = await fetch(`${apiBase}/usage/${botId}`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json() as { used: number; remaining: number; limit: number; date: string; };
+        await sendReply(event, `📊 今日额度 (${data.date})\n已用: ${data.used}/${data.limit} 次\n剩余: ${data.remaining} 次\n\n💡 额度用完可前往 https://api.ytea.top/ 免费签到和订阅获取密钥`, ctx);
+      } else {
+        await sendReply(event, '❌ 查询额度失败喵～', ctx);
+      }
+    } catch {
+      await sendReply(event, '❌ 查询额度失败喵～', ctx);
+    }
     return true;
   }
 

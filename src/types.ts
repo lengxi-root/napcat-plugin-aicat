@@ -10,7 +10,7 @@ export interface PluginConfig {
   ownerQQs: string;
   model: string;
   debug: boolean;
-  apiSource: 'main' | 'custom';
+  apiSource: 'main' | 'ytea' | 'custom';
   customApiUrl: string;
   customApiKey: string;
   customModel: string;
@@ -18,6 +18,8 @@ export interface PluginConfig {
   autoSwitchModel: boolean;  // 自动切换可用模型
   allowAtTrigger: boolean;   // 允许@机器人触发（无需前缀）
   disabledGroups: string[];  // 禁用AI对话的群列表
+  ytApiKey: string;          // api.ytea.top 密钥（免费签到和订阅获取）
+  yteaModel: string;         // ytea 模式选择的模型
   [key: string]: unknown;
 }
 

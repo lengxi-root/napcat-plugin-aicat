@@ -1,7 +1,7 @@
 {
   "name": "napcat-plugin-aicat",
   "plugin": "AI Cat",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "type": "module",
   "main": "index.mjs",
   "description": "智能AI猫娘助手插件，AI 对话帮助你群管理、自定义指令、定时任务等功能",
